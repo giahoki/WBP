@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
     const int live_mode = argc > 1 && !strcmp(argv[1], "--live-resolution");
     const VkApplicationInfo app = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = "bbport scene scaling probe",
+        .pApplicationName = "wbp scene scaling probe",
         .apiVersion = VK_API_VERSION_1_3,
     };
     const VkInstanceCreateInfo create = {

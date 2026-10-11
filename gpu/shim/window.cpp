@@ -1,4 +1,4 @@
-// bbport: SDL3 window for the Vulkan swapchain (X11 or Wayland).
+// wbp: SDL3 window for the Vulkan swapchain (X11 or Wayland).
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -6,7 +6,7 @@
 #include "common/assert.h"
 #include "common/logging/log.h"
 #include "sdl_window.h"
-#include "bbport_overlay.h"
+#include "wbp_overlay.h"
 
 // runtime_mouse.c: native mouse camera
 extern "C" {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// bbport: speculative draw preparation on worker threads (see vk_draw_prep.h).
+// wbp: speculative draw preparation on worker threads (see vk_draw_prep.h).
 
 #include <algorithm>
 #include <chrono>
@@ -7,8 +7,8 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "bbport_threads.h"
-#include "bbport_toggles.h"
+#include "wbp_threads.h"
+#include "wbp_toggles.h"
 #include "common/thread.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pm4_cmds.h"

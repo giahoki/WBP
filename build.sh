@@ -35,8 +35,8 @@ apply_fsr_patches() {
 }
 
 # Windows: MSYS2 CLANG64 (packages in packaging/windows/README.md). The GPU library is static
-# there and CMake links bb-probe.exe as well; ThinLTO on (BB_LTO=OFF: off), clang PGO from
-# pgo/bbport.profdata when it is there.
+# there and CMake links wbp-game.exe as well; ThinLTO on (BB_LTO=OFF: off), clang PGO from
+# pgo/wbp.profdata when it is there.
 case $(uname -s) in
 MINGW*|MSYS*)
     # shellcheck source=msys2-env.sh
@@ -46,15 +46,15 @@ MINGW*|MSYS*)
     done
     # Profile-guided optimization (clang): BB_PGO=generate builds an instrumented game that
     # writes pgo/*.profraw while it is played; the next build merges them into
-    # pgo/bbport.profdata and uses it (BB_PGO=off: without). One profile serves every player.
+    # pgo/wbp.profdata and uses it (BB_PGO=off: without). One profile serves every player.
     pgo=${BB_PGO:-}
     if [[ -z $pgo ]]; then
         if compgen -G 'pgo/*.profraw' >/dev/null; then
-            llvm-profdata merge -o pgo/bbport.profdata pgo/*.profraw
+            llvm-profdata merge -o pgo/wbp.profdata pgo/*.profraw
             mkdir -p pgo/recorded && mv pgo/*.profraw pgo/recorded/
-            echo "PGO: merged the recorded profiles into pgo/bbport.profdata"
+            echo "PGO: merged the recorded profiles into pgo/wbp.profdata"
         fi
-        if [[ -f pgo/bbport.profdata ]]; then pgo=use; else pgo=off; fi
+        if [[ -f pgo/wbp.profdata ]]; then pgo=use; else pgo=off; fi
     fi
     mkdir -p pgo
     # --launcher: only Bloodborne.exe (the game runtime stays as it was built).
@@ -64,12 +64,12 @@ MINGW*|MSYS*)
     cmake -S gpu -B out/gpu -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_PGO="$pgo" -DBB_PGO_DIR="$PWD/pgo" \
         -DBB_LTO="${BB_LTO:-ON}" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ >/dev/null
     echo "GPU library and loader: LTO ${BB_LTO:-ON}, PGO $pgo"
-    if ! ninja -C out/gpu bb-probe bb-gpu-capabilities bb-play > out/gpu-build.log 2>&1; then
+    if ! ninja -C out/gpu wbp-game bb-gpu-capabilities bb-play > out/gpu-build.log 2>&1; then
         grep -v '^\[' out/gpu-build.log | tail -40 >&2
         echo 'Build failed (full log: out/gpu-build.log)' >&2; exit 1
     fi
-    cp out/gpu/bb-probe.exe out/gpu/bb-gpu-capabilities.exe out/gpu/bb-play.exe out/
-    echo "Built $PWD/out/bb-probe.exe"
+    cp out/gpu/wbp-game.exe out/gpu/bb-gpu-capabilities.exe out/gpu/bb-play.exe out/
+    echo "Built $PWD/out/wbp-game.exe"
     fi
     # The launcher and the game preparation (Bloodborne.exe, launcher/CMakeLists.txt).
     cmake -S launcher -B out/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release \
@@ -130,8 +130,8 @@ if [[ ! -f out/libatrac9.a || -n $(find third_party/LibAtrac9/C/src -newer out/l
     for source in "${atrac9[@]}"; do "$CC" -std=c99 -O2 -g -w -c "$source" -o "out/atrac9/$(basename "${source%.c}").o"; done
     ar rcs out/libatrac9.a out/atrac9/*.o
 fi
-"$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -no-pie "${includes[@]}" -I. -Isrc src/probe.c "${runtime[@]}" src/vulkan_smoke.c out/libatrac9.a -lm "${gpu[@]}" "${libraries[@]}" -o out/bb-probe
-echo "Built $PWD/out/bb-probe"
+"$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -no-pie "${includes[@]}" -I. -Isrc src/probe.c "${runtime[@]}" src/vulkan_smoke.c out/libatrac9.a -lm "${gpu[@]}" "${libraries[@]}" -o out/wbp-game
+echo "Built $PWD/out/wbp-game"
 # GPU check for run.sh (live_resolution=auto): links only the Vulkan loader.
 "$CC" -std=c11 -O2 -Wall -Wextra -Werror tools/gpu_capabilities.c "${libraries[@]}" -o out/bb-gpu-capabilities
 if [[ ${1:-} == --test ]]; then

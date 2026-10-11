@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include "bbport_copy.h"
-#include "bbport_threads.h"
+#include "wbp_copy.h"
+#include "wbp_threads.h"
 
 #include <algorithm>
 #include <atomic>
@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "common/thread.h"
 
 namespace BbCopy {

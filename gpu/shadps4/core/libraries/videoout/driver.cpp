@@ -11,7 +11,7 @@
 #include <sys/resource.h>
 #endif
 #include "common/assert.h"
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "video_core/renderer_vulkan/vk_frame_capture.h"
 #include "common/debug.h"
 #include "common/thread.h"
@@ -290,7 +290,7 @@ int VideoOutDriver::ChangeBufferAttribute(VideoOutPort* port, s32 attributeIndex
 }
 
 void VideoOutDriver::Flip(const Request& req) {
-    // Update HDR status before presenting, then present the frame (bbport: on the swap thread).
+    // Update HDR status before presenting, then present the frame (wbp: on the swap thread).
     RunPresenter([this, frame = req.frame, hdr = req.port->is_hdr] {
         presenter->SetHDR(hdr);
         presenter->Present(frame);
@@ -298,7 +298,7 @@ void VideoOutDriver::Flip(const Request& req) {
     Vulkan::FrameCapture::OnFlip(req.index >= 0 ? req.port->buffer_slots[req.index].address_left
                                                 : 0);
 
-    // bbport: BB_FRAME_STATS=1 prints flip rate and frame time spread every 5 seconds.
+    // wbp: BB_FRAME_STATS=1 prints flip rate and frame time spread every 5 seconds.
     static const bool frame_stats = EmulatorSettingsImpl::Flag("BB_FRAME_STATS", false);
     if (frame_stats) {
         using Clock = std::chrono::steady_clock;
@@ -591,7 +591,7 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
 
     Common::AccurateTimer timer{vblank_period};
 
-    // bbport: frame limit (see EmulatorSettings::GetFrameLimit). A request waits in the queue
+    // wbp: frame limit (see EmulatorSettings::GetFrameLimit). A request waits in the queue
     // until its slot; slots advance by one period (no drift) but never lag behind by more.
     const u32 frame_limit = EmulatorSettings.GetFrameLimit();
     const auto frame_period = frame_limit ? std::chrono::nanoseconds(1000000000 / frame_limit)
@@ -610,7 +610,7 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
         return {};
     };
 
-    // bbport: with a frame limit (uncapped presets) a queued flip is presented as soon as it
+    // wbp: with a frame limit (uncapped presets) a queued flip is presented as soon as it
     // arrives and its slot allows, between vblanks, instead of on the next vblank tick.
     const bool immediate_flips = frame_limit != 0;
 

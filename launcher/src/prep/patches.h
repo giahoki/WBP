@@ -29,7 +29,7 @@ struct PatchOptions {
     fs::path xml;            // patches/Bloodborne.xml
     fs::path out;            // out/ (patches.bin)
     fs::path game;           // game folder (version, debug fonts, eboot segments)
-    fs::path settings;       // bbport.ini
+    fs::path settings;       // wbp.ini
     std::string fps = "uncap";
     std::string extra;       // more patch names separated by ';'
     std::string render_res;  // WxH, overrides the preset

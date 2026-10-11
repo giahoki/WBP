@@ -3,7 +3,7 @@
 
 #include <xxhash.h>
 #include "video_core/renderer_vulkan/ui_composition.h"
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "video_core/renderer_vulkan/vk_frame_capture.h"
 #include "common/debug.h"
 #include "core/debug_state.h"
@@ -19,7 +19,7 @@
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_gpu_profiler.h"
-#include "bbport_threads.h"
+#include "wbp_threads.h"
 #include "video_core/renderer_vulkan/vk_runtime.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_hle.h"
@@ -67,7 +67,7 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_, Runtime
         constant_ring = std::make_unique<ConstantRing>(instance, scheduler);
         draw_pipe = std::make_unique<DrawPipe>(&RunDrawPacket, this);
     }
-    // bbport: this thread joins the texture binding helper before it changes image state.
+    // wbp: this thread joins the texture binding helper before it changes image state.
     runtime.SetImageAccessHook(&JoinBindHelper, this);
     scheduler.SetSubmitCallback([this](Vulkan::SubmitInfo& info) {
         runtime.FlushBarriers();
@@ -262,7 +262,7 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
     } else {
         db_desc.first = {};
     }
-    // bbport: the G-buffer pass (5+ color targets) holds the scene depth, and its constants the
+    // wbp: the G-buffer pass (5+ color targets) holds the scene depth, and its constants the
     // main camera (shadow passes bind the same layout with the light's camera).
     gbuffer_draw = camera_motion->Enabled() && std::popcount(key.mrt_mask) >= 5 && db_desc.first;
     if (gbuffer_draw) {
@@ -271,7 +271,7 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
     if (upscaler->Enabled() && cb_descs[0].first) {
         upscaler->OnColorTarget(cb_descs[0].first);
     }
-    // bbport: scene color: a full-size RGBA16F target drawn with the scene depth.
+    // wbp: scene color: a full-size RGBA16F target drawn with the scene depth.
     if (upscaler->Enabled() && db_desc.first && db_desc.first == camera_motion->Depth() &&
         cb_descs[0].first && std::popcount(key.mrt_mask) <= 2) {
         const auto& color = texture_cache.GetImage(cb_descs[0].first);
@@ -334,7 +334,7 @@ void Rasterizer::EliminateFastClear() {
     ScopeMarkerEnd();
 }
 
-// bbport: two-stage draw pipeline (vk_draw_pipe.h). Packet layout, 8-byte aligned parts:
+// wbp: two-stage draw pipeline (vk_draw_pipe.h). Packet layout, 8-byte aligned parts:
 // DrawPacket, u16 block indices, u32 block words (RegDirty::BlockWords each), then per stage a
 // PacketStage with its user data and flattened user data, then (verification) the full file.
 namespace {
@@ -394,7 +394,7 @@ bool Rasterizer::UseDrawPipe() const {
 
 bool Rasterizer::OnStageA() const {
 #ifdef _WIN32
-    // bbport (Windows): libc++ compares std::thread::id through winpthreads' pthread_equal,
+    // wbp (Windows): libc++ compares std::thread::id through winpthreads' pthread_equal,
     // which asks the kernel (GetThreadId) for both threads: two system calls per check, many
     // per draw. The numeric thread id comes from the TEB.
     return static_cast<u32>(gettid()) == liverpool->GetGpuCommandProcessorThreadId();
@@ -914,7 +914,7 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset, const PreparedDraw* pre
     RENDERER_TRACE;
     BbStats::draws.fetch_add(1, std::memory_order_relaxed);
 
-    // bbport: with the draw pipeline this thread only selects the pipeline and hands the draw
+    // wbp: with the draw pipeline this thread only selects the pipeline and hands the draw
     // to the recording thread (DrawRecord there); draws FilterDraw handles itself run here.
     const bool pipelined = UseDrawPipe();
     if (pipelined && !FilterDrawPasses() &&
@@ -954,7 +954,7 @@ void Rasterizer::DrawRecord(const GraphicsPipeline* pipeline, const PreparedDraw
         scheduler.PopPendingOperations();
     }
     const auto& regs = Regs();
-    // bbport: the pass copying a finished frame to a display buffer; the previous draw's
+    // wbp: the pass copying a finished frame to a display buffer; the previous draw's
     // target is that frame.
     if (camera_motion->Enabled() && regs.color_buffers[0] &&
         FrameCapture::IsDisplayBuffer(regs.color_buffers[0].Address())) {
@@ -983,7 +983,7 @@ void Rasterizer::DrawRecord(const GraphicsPipeline* pipeline, const PreparedDraw
                          UiComposition::NativeViewport(viewport.xscale * 2, viewport.yscale * 2));
     }
     const PreparedDraw* draw_prepared = bind_prepared;
-    // bbport: vertex and index buffers are resolved while the helper binds textures (their
+    // wbp: vertex and index buffers are resolved while the helper binds textures (their
     // commands are recorded after BeginRendering, as before).
     draw_inputs = {pipeline, draw_prepared, index_offset, is_indexed, true, false};
     const bool bound = BindResources(pipeline);
@@ -1010,7 +1010,7 @@ void Rasterizer::DrawRecord(const GraphicsPipeline* pipeline, const PreparedDraw
         runtime.FlushBarriers();
     }
 
-    // bbport: screen-space (clip disabled) draws into the upscaler's output-size images.
+    // wbp: screen-space (clip disabled) draws into the upscaler's output-size images.
     push_data.xscale *= target_scale[0];
     push_data.xoffset *= target_scale[0];
     push_data.yscale *= target_scale[1];
@@ -1098,7 +1098,7 @@ void Rasterizer::DrawRecord(const GraphicsPipeline* pipeline, const PreparedDraw
         }
     }
     pipeline->BindResources(set_writes, push_data);
-    // bbport: jitter geometry drawn with the scene depth, not full-screen passes (a shifted
+    // wbp: jitter geometry drawn with the scene depth, not full-screen passes (a shifted
     // full-screen quad leaves an edge column unwritten).
     draw_jitter = {};
     if (upscaler->Enabled() && db_desc.first && db_desc.first == camera_motion->Depth() &&
@@ -1149,7 +1149,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
                               u32 max_count, VAddr count_address, u16 vertex_sgpr_offset,
                               u16 instance_sgpr_offset) {
     RENDERER_TRACE;
-    // bbport: like direct draws, handed to the recording thread after the pipeline selection
+    // wbp: like direct draws, handed to the recording thread after the pipeline selection
     // (else the GPU thread waited here for a whole frame of queued draws).
     const bool pipelined = UseDrawPipe() && FilterDrawPasses() &&
                            !BbToggle::Disabled(BbToggle::PipelinedIndirectDraws);
@@ -1222,7 +1222,7 @@ void Rasterizer::DrawIndirectRecord(const GraphicsPipeline* pipeline, bool is_in
         runtime.FlushBarriers();
     }
 
-    // bbport: screen-space (clip disabled) draws into the upscaler's output-size images.
+    // wbp: screen-space (clip disabled) draws into the upscaler's output-size images.
     push_data.xscale *= target_scale[0];
     push_data.xoffset *= target_scale[0];
     push_data.yscale *= target_scale[1];
@@ -1267,7 +1267,7 @@ void Rasterizer::DrawIndirectRecord(const GraphicsPipeline* pipeline, bool is_in
 void Rasterizer::DispatchDirect() {
     RENDERER_TRACE;
     BbStats::dispatches.fetch_add(1, std::memory_order_relaxed);
-    // bbport: like draws, handed to the draw recording thread after the pipeline selection.
+    // wbp: like draws, handed to the draw recording thread after the pipeline selection.
     const bool pipelined = UseDrawPipe() && !BbToggle::Disabled(BbToggle::PipelinedDispatch);
     if (!pipelined) {
         DrainDrawPipe();
@@ -1337,7 +1337,7 @@ void Rasterizer::DispatchRecord(const ComputePipeline* pipeline) {
 
 void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
     RENDERER_TRACE;
-    // bbport: handed to the recording thread like direct dispatches.
+    // wbp: handed to the recording thread like direct dispatches.
     const bool pipelined = UseDrawPipe() && !BbToggle::Disabled(BbToggle::PipelinedIndirectDraws);
     if (!pipelined) {
         DrainDrawPipe();
@@ -1533,7 +1533,7 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
     set_writes.clear();
     buffer_infos.clear();
     image_infos.clear();
-    // bbport: G-buffer passes sample material textures for a scene rendered below the output
+    // wbp: G-buffer passes sample material textures for a scene rendered below the output
     // size; the temporal upscaler restores the detail of the output's mip level (FSR guide:
     // log2(render / output)). Shadows, post-processing and UI keep the guest's bias.
     sampler_lod_bias = 0.0f;
@@ -1587,7 +1587,7 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
             uses_dma |= stage->uses_dma;
         }
     } else {
-        // bbport: textures on the helper, buffers here. Without mip arrays every stage's
+        // wbp: textures on the helper, buffers here. Without mip arrays every stage's
         // descriptors are [buffers][images][samplers], one each, so both sides know their
         // binding numbers and descriptor write slots up front.
         struct BufferStage {
@@ -1661,7 +1661,7 @@ void Rasterizer::BindVertexBuffers(const GraphicsPipeline* pipeline, const Prepa
 }
 
 void Rasterizer::EmitVertexBuffers() {
-    // bbport: only the used entries go into the recording chunk (the static vectors hold 32 of
+    // wbp: only the used entries go into the recording chunk (the static vectors hold 32 of
     // each: ~3 KiB copied per draw).
     auto& v = vertex_binds;
     const bool dynamic_input = instance.IsVertexInputDynamicState();
@@ -2234,7 +2234,7 @@ void Rasterizer::BindTextures(const Shader::Info& stage, const PreparedStage* pr
         const auto& image_desc = stage.images[image_index];
         const auto tsharp =
             prepared ? prepared->image_sharps[image_index] : image_desc.GetSharp(stage);
-        // bbport: a hash lookup per texture per draw for a diagnostic only.
+        // wbp: a hash lookup per texture per draw for a diagnostic only.
         static const bool warn_meta = std::getenv("BB_WARN_META_TEXTURE") != nullptr;
         if (warn_meta && texture_cache.IsMeta(tsharp.Address())) {
             LOG_WARNING(Render_Vulkan, "Unexpected metadata read by a shader (texture)");
@@ -2289,7 +2289,7 @@ void Rasterizer::BindTextures(const Shader::Info& stage, const PreparedStage* pr
                         int(image_desc.is_written), num_bindings, int(mip_fallback_mode));
         };
         for (auto i = 0; i < num_bindings; i++) {
-            // bbport: a plain binding (no mip override) of the same T# resolves to the same image
+            // wbp: a plain binding (no mip override) of the same T# resolves to the same image
             // while no image was registered or unregistered.
             if (mip_fallback_mode == Shader::MipStorageFallbackMode::None &&
                 desc_entry.found_generation == texture_cache.RegistryGeneration() &&
@@ -2381,7 +2381,7 @@ void Rasterizer::BindTextures(const Shader::Info& stage, const PreparedStage* pr
                 image_id, desc, memo_entry ? &memo_entry->view_memo : nullptr, !on_helper);
             const auto binding = image.binding;
 
-            // bbport: a proxied scene image sampled with normalized coordinates reads the proxy:
+            // wbp: a proxied scene image sampled with normalized coordinates reads the proxy:
             // no resample to the native size (the native image is not touched).
             if (binding_proxy_ok[binding_index] && !is_storage && !binding.force_general &&
                 !binding.is_target &&
@@ -2434,7 +2434,7 @@ void Rasterizer::BindTextures(const Shader::Info& stage, const PreparedStage* pr
             vk::ImageView view = *image_view.image_view;
             vk::ImageLayout layout = image.backing->state.layout;
             if (upscaler->Enabled()) {
-                // bbport: the display pass reads the upscaled frame (scaled presets).
+                // wbp: the display pass reads the upscaled frame (scaled presets).
                 upscaler->RedirectSampled(image_id, image_view.info, view, layout);
             }
             image_infos.emplace_back(VK_NULL_HANDLE, view, layout);
@@ -2612,7 +2612,7 @@ bool Rasterizer::BindTexturesFromSet(const Shader::Info& stage, const PreparedSt
 }
 
 RenderState Rasterizer::BeginRendering(const GraphicsPipeline* pipeline) {
-    // bbport: RenderStateMemo (see BeginMemo).
+    // wbp: RenderStateMemo (see BeginMemo).
     const bool memo_on = !BbToggle::Disabled(BbToggle::RenderStateMemo) && !FrameCapture::Active();
     if (BbStats::enabled && ((begin_memo_hits + begin_memo_misses) & 0x3FFFF) == 0x3FFFF) {
         std::printf("Render state memo: %llu hits, %llu misses; texture sets: %llu hits, %llu "
@@ -2901,7 +2901,7 @@ RenderState Rasterizer::BeginRenderingFull(const GraphicsPipeline* pipeline) {
         state.depth_stencil_attachment = {};
     }
 
-    // bbport: a pass drawn into the upscaler's output-size images (UI, display pass): every
+    // wbp: a pass drawn into the upscaler's output-size images (UI, display pass): every
     // attachment must be redirected, viewports and scissors are scaled.
     target_scale = {1.0f, 1.0f};
     if (color_redirected || depth_redirected) {
@@ -2979,7 +2979,7 @@ RenderState Rasterizer::BeginRenderingFull(const GraphicsPipeline* pipeline) {
             db_desc.first ? &texture_cache.GetImage(db_desc.first).info : nullptr;
         FrameCapture::BeginPass(colors.data(), state.num_color_attachments, depth);
     }
-    // bbport: object motion vector attachment of G-buffer pipelines.
+    // wbp: object motion vector attachment of G-buffer pipelines.
     if (key.motion_vectors) {
         object_motion->Attach(state, state.width, state.height);
     }
@@ -3258,7 +3258,7 @@ void Rasterizer::UpdateViewportScissorState() const {
             const auto yoffset = vp_ctl.yoffset_enable ? vp.yoffset : 0.f;
             const auto yscale = vp_ctl.yscale_enable ? vp.yscale : 1.f;
 
-            // bbport: sub-pixel jitter of scene geometry for the temporal upscaler; the same
+            // wbp: sub-pixel jitter of scene geometry for the temporal upscaler; the same
             // shift as jittering the projection.
             viewport.x = (xoffset - xscale) * target_scale[0] + draw_jitter[0];
             viewport.y = (yoffset - yscale) * target_scale[1] + draw_jitter[1];

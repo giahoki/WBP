@@ -7,8 +7,8 @@
 #include <sys/resource.h>
 #endif
 #include <time.h>
-#include "bbport_copy.h"
-#include "bbport_toggles.h"
+#include "wbp_copy.h"
+#include "wbp_toggles.h"
 #include <cstdio>
 #include <boost/preprocessor/stringize.hpp>
 
@@ -23,7 +23,7 @@
 #include "core/memory.h"
 #include "core/platform.h"
 #include "video_core/amdgpu/liverpool.h"
-#include "bbport_write_log.h"
+#include "wbp_write_log.h"
 #include "video_core/amdgpu/pm4_cmds.h"
 #include "video_core/renderdoc.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
@@ -87,7 +87,7 @@ Liverpool::~Liverpool() {
 
 void Liverpool::ProcessCommands() {
     if (num_commands && rasterizer) {
-        rasterizer->DrainDrawPipe(Vulkan::DrawPipe::ReasonCommands); // bbport: commands touch the caches
+        rasterizer->DrainDrawPipe(Vulkan::DrawPipe::ReasonCommands); // wbp: commands touch the caches
     }
     // Process incoming commands with high priority
     while (num_commands) {
@@ -171,7 +171,7 @@ void Liverpool::Process(std::stop_token stoken) {
             submit_done = false;
         }
 
-        // bbport: the guest takes GPU idle (sceGnmSubmitDone) as its work being done and frees
+        // wbp: the guest takes GPU idle (sceGnmSubmitDone) as its work being done and frees
         // the objects that hold its fence labels. The labels must be written before: the draw
         // recording thread and the fences it deferred to the Vulkan recording thread
         // (RecorderFences). Else a late fence write lands in freed memory (a corrupted guest
@@ -193,7 +193,7 @@ void Liverpool::Process(std::stop_token stoken) {
 }
 
 namespace {
-/// bbport: packets the GPU command thread handles while the draw recording thread may still
+/// wbp: packets the GPU command thread handles while the draw recording thread may still
 /// work on earlier draws (register state, draws it hands over, nested buffers). Every other
 /// packet first waits for that thread to run dry (Rasterizer::DrainDrawPipe).
 bool PipelinedOpcode(PM4ItOpcode opcode) {
@@ -251,7 +251,7 @@ void SignalEop(const PM4CmdEventWriteEop& eop) {
         [] { Platform::IrqC::Instance()->Signal(Platform::InterruptId::GfxEop); });
 }
 
-// bbport: end-of-pipe/-shader events run in order with the draws (Rasterizer::RunInOrder: on
+// wbp: end-of-pipe/-shader events run in order with the draws (Rasterizer::RunInOrder: on
 // the draw recording thread when the draw pipeline is in use).
 void RunEventWriteEop(Vulkan::Rasterizer& rasterizer, const u8* data) {
     const auto eop = *reinterpret_cast<const PM4CmdEventWriteEop*>(data);
@@ -422,7 +422,7 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
             break;
         }
         case PM4ItOpcode::DumpConstRam: {
-            // bbport: earlier draws on the recording thread may still read constants here.
+            // wbp: earlier draws on the recording thread may still read constants here.
             if (rasterizer) {
                 rasterizer->DrainDrawPipe(Vulkan::DrawPipe::ReasonConstRam);
             }
@@ -465,7 +465,7 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
     FIBER_EXIT;
 }
 
-// bbport: graphics-register effects of a type-3 packet. The GPU thread and the draw-preparation
+// wbp: graphics-register effects of a type-3 packet. The GPU thread and the draw-preparation
 // workers both go through this function, and both fold every register-writing packet into a
 // running checksum: equal checksums at a draw mean equal register files.
 u64 Liverpool::HashRegisterPacket(u64 checksum, const u32* words, u32 count) {
@@ -597,7 +597,7 @@ void Liverpool::ApplyGraphicsRegisterPacket(Regs& regs, const PM4Header* header,
     checksum = HashRegisterPacket(checksum, reinterpret_cast<const u32*>(header), count + 1);
 }
 
-// bbport: BB_DCB_STATS=1 — structure of graphics command buffers (read-only scan, printed every
+// wbp: BB_DCB_STATS=1 — structure of graphics command buffers (read-only scan, printed every
 // 5 s): how many buffers, draws per buffer, state set before the first draw. Input for
 // processing command buffers on several threads.
 namespace {
@@ -770,7 +770,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 case PM4CmdNop::PayloadType::PatchedFlip: {
                     // There is no evidence that GPU CP drives flip events by parsing
                     // special NOP packets. For convenience lets assume that it does.
-                    // bbport: after the writes before it (the buffer label: WriteData, which
+                    // wbp: after the writes before it (the buffer label: WriteData, which
                     // may still be queued on the draw recording thread).
                     if (rasterizer) {
                         rasterizer->RunInOrder(&SignalFlip, header, sizeof(u32),
@@ -1231,7 +1231,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                     vo_port->WaitVoLabel([&] { return wait_reg_mem->Test(regs.reg_array); });
                     break;
                 }
-                // bbport: a fence handed to the draw recording thread counts as written: that
+                // wbp: a fence handed to the draw recording thread counts as written: that
                 // thread runs everything in stream order.
                 if (u32 value; wait_reg_mem->mem_space.Value() ==
                                    PM4CmdWaitRegMem::MemSpace::Memory &&
@@ -1330,7 +1330,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
     }
     if (seq != NoSeq && BbStats::enabled) {
         BbStats::submissions.fetch_add(1, std::memory_order_relaxed);
-#ifndef _WIN32 // bbport: per-thread rusage statistics are Linux-only
+#ifndef _WIN32 // wbp: per-thread rusage statistics are Linux-only
         if (rusage usage{}; getrusage(RUSAGE_THREAD, &usage) == 0) {
             BbStats::gpu_user_us.store(u64(usage.ru_utime.tv_sec) * 1000000 + usage.ru_utime.tv_usec,
                                        std::memory_order_relaxed);
@@ -1362,7 +1362,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
     while (!acb.empty()) {
         ProcessCommands();
         if (rasterizer) {
-            rasterizer->DrainDrawPipe(Vulkan::DrawPipe::ReasonCompute); // bbport: compute work uses the caches
+            rasterizer->DrainDrawPipe(Vulkan::DrawPipe::ReasonCompute); // wbp: compute work uses the caches
         }
 
         auto* header = reinterpret_cast<const PM4Header*>(acb.data());
@@ -1496,7 +1496,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             } else {
                 std::memcpy(&regs.reg_array[Regs::ShRegWordOffset + set_data->reg_offset],
                             header + 2, set_size);
-                // bbport: interleaves with the graphics stream at an unpredictable point, so
+                // wbp: interleaves with the graphics stream at an unpredictable point, so
                 // draw-preparation workers cannot reproduce it: make their checksums differ.
                 gfx_reg_checksum = HashRegisterPacket(gfx_reg_checksum ^ 0xA5C0A5C0A5C0ull,
                                                       reinterpret_cast<const u32*>(header),
@@ -1556,7 +1556,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             break;
         }
         case PM4ItOpcode::WriteData: {
-            // bbport: copies deferred to the recording thread precede writes the guest sees, and
+            // wbp: copies deferred to the recording thread precede writes the guest sees, and
             // so do graphics fences deferred to it (the pipe was drained before this packet).
             if (rasterizer) {
                 rasterizer->WaitHostCopies();
@@ -1593,7 +1593,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             break;
         }
         case PM4ItOpcode::ReleaseMem: {
-            // bbport: copies deferred to the recording thread precede writes the guest sees, and
+            // wbp: copies deferred to the recording thread precede writes the guest sees, and
             // so do graphics fences deferred to it (the pipe was drained before this packet).
             if (rasterizer) {
                 rasterizer->WaitHostCopies();

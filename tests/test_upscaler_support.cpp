@@ -5,11 +5,11 @@
 #include <cstdlib>
 #include <initializer_list>
 #include <unistd.h>
-#include "bbport_settings.h"
+#include "wbp_settings.h"
 
 int main() {
     using namespace BbSettings;
-    char path[] = "/tmp/bbport-upscaler-test-XXXXXX";
+    char path[] = "/tmp/wbp-upscaler-test-XXXXXX";
     const int fd = mkstemp(path);
     assert(fd >= 0);
     close(fd);

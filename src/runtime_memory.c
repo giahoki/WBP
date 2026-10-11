@@ -694,7 +694,7 @@ void *runtime_low_map(size_t size, int prot) {
  * 262144 with BB_ASYNC_FENCES=1: wait for guest copies at fences again,
  * 524288 small guest copies batched for the copy threads instead of the recording thread,
  * 1073741824 the lock-free UpdateImage path for clean, tracked images. */
-/* Bits 32 and up: the draw pipeline and related GPU thread work (gpu/shim/bbport_toggles.h). */
+/* Bits 32 and up: the draw pipeline and related GPU thread work (gpu/shim/wbp_toggles.h). */
 uint64_t runtime_disabled_optimizations;
 /* Speculative readers of guest memory (GPU draw-preparation workers) register a recovery
  * point: a fault on that thread jumps back to it instead of terminating (probe.c). */

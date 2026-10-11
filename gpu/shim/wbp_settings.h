@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// bbport: user settings changed at run time from the in-game menu (bbport_overlay.h) and kept
-// in bbport.ini (BB_CONFIG overrides the path). Environment variables override the file at
+// wbp: user settings changed at run time from the in-game menu (wbp_overlay.h) and kept
+// in wbp.ini (BB_CONFIG overrides the path). Environment variables override the file at
 // start. Readers load the atomics every frame; writers are the menu and Load().
 
 #pragma once
@@ -83,7 +83,7 @@ struct Values {
     /// Why FSR 4 cannot run (assets, device features), or null. Set by the renderer.
     std::atomic<const char*> fsr4_problem{nullptr};
     std::atomic<bool> fsr4_supported{false}, fsr411_supported{false};
-    /// DLSS (bbport_dlss.dll, NVIDIA RTX) is ready, or why not (null before the device exists).
+    /// DLSS (wbp_dlss.dll, NVIDIA RTX) is ready, or why not (null before the device exists).
     std::atomic<bool> dlss_supported{false};
     std::atomic<const char*> dlss_problem{nullptr};
 

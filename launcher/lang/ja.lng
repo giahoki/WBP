@@ -8,7 +8,7 @@ Advanced	詳細設定
 Log	ログ
 PLAY	プレイ
 Stop	停止
-native port · Windows	ネイティブ移植 · Windows
+Windows Bloodborne Port	Windows Bloodborne Port
 In the game: Insert or L3+R3\nopens the port's menu.	ゲーム中：Insert または L3+R3\nで移植版メニューを開きます。
 Ready check	準備チェック
 Quick settings	クイック設定
@@ -38,7 +38,7 @@ Restarting with the new settings…	新しい設定で再起動しています�
 \n— the game exited (code {}) —\n	\n— ゲームが終了しました（コード {}）—\n
 Could not start: {}	起動できませんでした：{}
 Choose the game folder with eboot.bin (CUSA03173).	eboot.bin のあるゲームフォルダーを選択してください（CUSA03173）。
-Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	bbport.ini に保存されます。ゲーム内メニュー（Insert または L3+R3）でも同じ値を変更できます。
+Stored in wbp.ini; the in-game menu (Insert or L3+R3) changes the same values.	wbp.ini に保存されます。ゲーム内メニュー（Insert または L3+R3）でも同じ値を変更できます。
 Upscaling	アップスケーリング
 Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	ゲーム自身のモーションベクトルを使うテンポラルアップスケーリング。FSR 4 にはファイル（下記）と INT8 対応 GPU が必要です。ない場合は自動で FSR 3.1 になります。
 Quality preset	画質プリセット

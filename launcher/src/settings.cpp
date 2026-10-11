@@ -143,9 +143,9 @@ std::map<std::string, std::vector<std::string>> LoadBindings(const std::map<std:
     return out;
 }
 
-// ---- bbport.ini --------------------------------------------------------------------------
+// ---- wbp.ini --------------------------------------------------------------------------
 
-fs::path Ini::Path() { return HasEnv("BB_CONFIG") ? PathFrom(Env("BB_CONFIG")) : DataDir() / L"bbport.ini"; }
+fs::path Ini::Path() { return HasEnv("BB_CONFIG") ? PathFrom(Env("BB_CONFIG")) : DataDir() / L"wbp.ini"; }
 
 const std::map<std::string, std::string>& Ini::Defaults() {
     static const std::map<std::string, std::string> defaults = [] {
@@ -204,7 +204,7 @@ void Ini::Save() {
         }
         out.push_back(line);
     }
-    if (lines.empty()) out.push_back("# bbport settings (in-game menu: Insert / L3+R3)");
+    if (lines.empty()) out.push_back("# wbp settings (in-game menu: Insert / L3+R3)");
     for (auto& [key, value] : Defaults())
         if (!written[key]) out.push_back(key + "=" + Get(key));
     std::string text;

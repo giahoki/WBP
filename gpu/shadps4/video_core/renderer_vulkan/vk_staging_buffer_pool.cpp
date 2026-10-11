@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include <algorithm>
 #include <bit>
 #include <cstdlib>
@@ -21,7 +21,7 @@ using VideoCore::MemoryType;
 
 namespace {
 
-// bbport: staging memory is populated (allocated and cleared) by the kernel on first CPU access,
+// wbp: staging memory is populated (allocated and cleared) by the kernel on first CPU access,
 // ~2 ms per 16 MiB block. Streaming bursts a few seconds apart re-created the blocks trimmed
 // in between and copies into them ran at 0.3 GB/s (stutter). Blocks now live 30 s idle, the
 // upload ring keeps BB_STAGING_KEEP_MB (512) and is populated at startup.

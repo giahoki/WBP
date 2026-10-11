@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <boost/container/small_vector.hpp>
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "common/assert.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
@@ -109,7 +109,7 @@ struct PageManager::Impl {
 
     static bool GuestFaultSignalHandler(void* context, void* fault_address) {
         const auto addr = reinterpret_cast<VAddr>(fault_address);
-        // bbport: the draw recording thread handles its faults inline too (vk_draw_pipe.h).
+        // wbp: the draw recording thread handles its faults inline too (vk_draw_pipe.h).
         const auto is_gpu_thread = rasterizer->IsGpuSideThread();
         if (is_gpu_thread) {
             BbStats::gpu_signal_faults.fetch_add(1, std::memory_order_relaxed);
@@ -272,7 +272,7 @@ struct PageManager::Impl {
 };
 
 #ifdef __linux__
-// bbport: write tracking with userfaultfd write-protection instead of mprotect. mprotect takes
+// wbp: write tracking with userfaultfd write-protection instead of mprotect. mprotect takes
 // the address space lock for writing and splits mappings; while guest threads fault on
 // per-frame buffers and the GPU thread re-protects uploaded pages, every page fault in the
 // process (copy threads included) waits for it. UFFDIO_WRITEPROTECT changes page table bits

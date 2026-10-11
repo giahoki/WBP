@@ -4,7 +4,7 @@
 #include <cstring>
 #include <unordered_map>
 #include <vector>
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "common/assert.h"
 #include "shader_recompiler/frontend/decode.h"
 #include "shader_recompiler/frontend/fetch_shader.h"
@@ -56,7 +56,7 @@ std::optional<FetchShaderData> ParseFetchShader(const Shader::Info& info) {
 
     const auto* code = GetFetchShaderCode(info, info.fetch_shader_sgpr_base);
 
-    // bbport: the pipeline cache parses the fetch shader on every draw. Results are cached
+    // wbp: the pipeline cache parses the fetch shader on every draw. Results are cached
     // per thread by code address and revalidated against a copy of the code, which is
     // much cheaper than decoding it again.
     struct CachedParse {

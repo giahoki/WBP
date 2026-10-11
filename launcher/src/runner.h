@@ -11,7 +11,7 @@
 
 #include "settings.h"
 
-// --run [--after PID] [probe arguments]: prepares the game and runs bb-probe.exe. Exit code.
+// --run [--after PID] [probe arguments]: prepares the game and runs wbp-game.exe. Exit code.
 int RunGame(std::vector<std::wstring> args);
 
 // --play: the game with the launcher's saved settings; output to the console and last_run.log.

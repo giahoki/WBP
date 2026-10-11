@@ -543,7 +543,7 @@ void Launcher::Header(const Rect& r) {
     }
     TextStyle sub = Style(12, Rgb(0x9a8b78), Align::Center);
     sub.spacing = 3, sub.wrap = false, sub.caps = true;
-    g.Text(T("native port · Windows", "нативный порт · Windows") + "   \00b7   v" + VERSION + "   \00b7   giahoki",
+    g.Text(T("Windows Bloodborne Port", "Windows Bloodborne Port") + "   \00b7   v" + VERSION + "   \00b7   giahoki",
            Rect{0, 58, r.w, 18}, sub, true);
 
     // the tabs
@@ -877,8 +877,8 @@ float Launcher::PlayPage(const Rect& r) {
 
 float Launcher::GraphicsPage(float x, float y, float w) {
     y = PageHead(x, y, w, T("Graphics", "Графика"),
-                 T("Stored in bbport.ini; the in-game menu (Insert) changes the same values.",
-                   "Хранится в bbport.ini; в игре меняется через меню (Insert)."));
+                 T("Stored in wbp.ini; the in-game menu (Insert) changes the same values.",
+                   "Хранится в wbp.ini; в игре меняется через меню (Insert)."));
     Form f(ui_, x, y, w);
     f.Warning(UpscalerWarning());
     f.Section(T("Upscaling", "Апскейлинг"));
@@ -1252,7 +1252,7 @@ float Launcher::AdvancedPage(float x, float y, float w) {
     AppFlag(f, "close_on_play", T("Close the launcher when the game starts", "Закрывать лаунчер при запуске игры"));
     AppFlag(f, "check_updates", T("Check for updates when the launcher opens", "Проверять обновления при открытии лаунчера"));
     const int a = f.Buttons("adv1", {T("Desktop shortcut", "Ярлык на рабочем столе"), T("Add to Steam"),
-                                     T("Port folder", "Папка порта"), "bbport.ini"});
+                                     T("Port folder", "Папка порта"), "wbp.ini"});
     if (a == 0) {
         try {
             Notify(actions::DesktopShortcut());

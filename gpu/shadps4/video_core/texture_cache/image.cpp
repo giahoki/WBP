@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include <ranges>
 #include "common/assert.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
@@ -165,7 +165,7 @@ Image::Image(const Vulkan::Instance& instance, Vulkan::Runtime& runtime_,
     };
     auto image_format_properties =
         instance.GetPhysicalDevice().getImageFormatProperties2(format_info);
-    // bbport: storage usage is speculative (see ImageUsageFlags). Drivers that refuse it for a
+    // wbp: storage usage is speculative (see ImageUsageFlags). Drivers that refuse it for a
     // format (AMD's Windows driver for BC6H) get the image without it: creating the unsupported
     // combination anyway loses the device a few frames later.
     if (image_format_properties.result == vk::Result::eErrorFormatNotSupported &&

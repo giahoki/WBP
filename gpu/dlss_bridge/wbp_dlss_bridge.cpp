@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: Copyright 2026 IFreemz (shadps4_dlss bridge), bbport contributors
+// SPDX-FileCopyrightText: Copyright 2026 IFreemz (shadps4_dlss bridge), wbp contributors
 // SPDX-License-Identifier: MIT
 //
-// bbport_dlss.dll: the only part of the project that uses the NVIDIA DLSS (NGX) SDK. Built with
+// wbp_dlss.dll: the only part of the project that uses the NVIDIA DLSS (NGX) SDK. Built with
 // MSVC (the SDK's libraries are MSVC only); the port loads it at run time.
 // Adapted from IFreemz/shadPS4-Bloodborne-DLSS-FSR (dlss_bridge).
 
@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <string>
 
-#include "bbport_dlss_bridge.h" // Vulkan first: the NGX headers expect its types
+#include "wbp_dlss_bridge.h" // Vulkan first: the NGX headers expect its types
 
 #include <nvsdk_ngx_helpers.h>
 #include <nvsdk_ngx_vk.h>
@@ -19,7 +19,7 @@
 namespace {
 
 constexpr char ProjectId[] = "42359704-c9f3-4806-9fb5-d469000fdb8a";
-constexpr char EngineVersion[] = "bbport-windows";
+constexpr char EngineVersion[] = "WBP";
 
 struct State {
     BbDlssLogFn log{};
@@ -239,7 +239,7 @@ void Shutdown() {
     }
 }
 
-const BbDlssApi api{BBPORT_DLSS_BRIDGE_ABI, Configure,      InstanceExtensions, DeviceExtensions,
+const BbDlssApi api{WBP_DLSS_BRIDGE_ABI, Configure,      InstanceExtensions, DeviceExtensions,
                     Initialize,             CreateFeature,  Evaluate,           ReleaseFeature,
                     Shutdown};
 

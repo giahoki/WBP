@@ -8,7 +8,7 @@ Advanced	Erweitert
 Log	Protokoll
 PLAY	SPIELEN
 Stop	Beenden
-native port · Windows	nativer Port · Windows
+Windows Bloodborne Port	Windows Bloodborne Port
 In the game: Insert or L3+R3\nopens the port's menu.	Im Spiel: Einfg oder L3+R3\nöffnet das Port-Menü.
 Ready check	Bereitschaft
 Quick settings	Schnelleinstellungen
@@ -38,7 +38,7 @@ Restarting with the new settings…	Neustart mit den neuen Einstellungen…
 \n— the game exited (code {}) —\n	\n— das Spiel wurde beendet (Code {}) —\n
 Could not start: {}	Start fehlgeschlagen: {}
 Choose the game folder with eboot.bin (CUSA03173).	Spielordner mit eboot.bin wählen (CUSA03173).
-Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	Gespeichert in bbport.ini; das Menü im Spiel (Einfg oder L3+R3) ändert dieselben Werte.
+Stored in wbp.ini; the in-game menu (Insert or L3+R3) changes the same values.	Gespeichert in wbp.ini; das Menü im Spiel (Einfg oder L3+R3) ändert dieselben Werte.
 Upscaling	Hochskalierung
 Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	Temporale Hochskalierung mit den Bewegungsvektoren des Spiels. FSR 4 braucht seine Dateien (unten) und eine GPU mit INT8; sonst wechselt das Spiel selbst zu FSR 3.1.
 Quality preset	Qualitätsstufe

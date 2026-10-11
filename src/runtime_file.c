@@ -39,7 +39,7 @@ static int host_stat(const char *path, HostStat *s) {
     return 0;
 }
 #define host_lseek _lseeki64
-#define O_DIRECTORY 0x40000000 /* bbport marker, removed before _open */
+#define O_DIRECTORY 0x40000000 /* wbp marker, removed before _open */
 #else
 typedef struct stat HostStat;
 #define host_stat(path,s) stat(path,s)

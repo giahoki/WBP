@@ -140,15 +140,15 @@ int RunGame(std::vector<std::wstring> args) {
         SetCurrentDirectoryW(PortDir().c_str());
         const fs::path data = DataDir(), out = data / L"out";
         fs::create_directories(out);
-        DefaultEnv("BB_CONFIG", PathText(data / L"bbport.ini"));
+        DefaultEnv("BB_CONFIG", PathText(data / L"wbp.ini"));
         const fs::path config = PathFrom(Env("BB_CONFIG"));
         std::error_code ec;
         if (!HasEnv("BB_FSR411_DIR") && !fs::is_directory(PortDir() / L"fsr4_411", ec) && fs::is_directory(data / L"fsr4_411", ec))
             SetEnv("BB_FSR411_DIR", PathText(data / L"fsr4_411"));
 
-        const fs::path probe = HasEnv("BB_PROBE") ? PathFrom(Env("BB_PROBE")) : FindExecutable(L"bb-probe.exe");
+        const fs::path probe = HasEnv("BB_GAME_EXE") ? PathFrom(Env("BB_GAME_EXE")) : FindExecutable(L"wbp-game.exe");
         if (probe.empty() || !fs::is_regular_file(probe, ec))
-            throw Failure("bb-probe.exe not found: build it with build.sh (MSYS2 CLANG64) or use a packaged build.");
+            throw Failure("wbp-game.exe not found: build it with build.sh (MSYS2 CLANG64) or use a packaged build.");
         // Development builds run from the MSYS2 tree: its CLANG64 DLLs (SDL3, FFmpeg, ...).
         if (!fs::is_regular_file(probe.parent_path() / L"SDL3.dll", ec)) {
             const fs::path clang64 = PathFrom(Env("MSYS2_ROOT", "C:\\msys64")) / L"clang64" / L"bin";
@@ -158,7 +158,7 @@ int RunGame(std::vector<std::wstring> args) {
         const fs::path game = HasEnv("BB_GAME_DIR") ? PathFrom(Env("BB_GAME_DIR")) : PortDir().parent_path() / L"CUSA03173";
         if (!fs::is_regular_file(game / L"eboot.bin", ec)) throw Failure("No eboot.bin in " + PathText(game) + " (set BB_GAME_DIR).");
 
-        // Keyboard and mouse button prompts drawn from the bindings (bbport.ini key_icons=0: off).
+        // Keyboard and mouse button prompts drawn from the bindings (wbp.ini key_icons=0: off).
         const auto settings = prep::ReadSettings(config);
         std::vector<fs::path> layers;
         UnsetEnv("BB_DODGE_ICON");  // a restart from the game inherits the last run's value
@@ -266,7 +266,7 @@ int RunGame(std::vector<std::wstring> args) {
                               : status == 1          ? "stopped (error or the Stop button)"
                                                      : "unexpected";
         char line[160];
-        std::snprintf(line, sizeof(line), "bb-probe exited with code %d (0x%08X): %s", code, status, meaning);
+        std::snprintf(line, sizeof(line), "wbp-game exited with code %d (0x%08X): %s", code, status, meaning);
         Say(line);
         return code;
     } catch (const std::exception& error) {
@@ -305,7 +305,7 @@ void GameProcess::Start(const App& app) {
         CloseHandle(read_end);
         throw Failure(Fmt(T("Could not start: {}", "Не удалось запустить: {}"), std::to_string(GetLastError())));
     }
-    // A job holds this process and everything it starts (bb-probe.exe, the in-game restarts).
+    // A job holds this process and everything it starts (wbp-game.exe, the in-game restarts).
     job_ = CreateJobObjectW(nullptr, nullptr);
     if (job_) AssignProcessToJobObject(job_, pi.hProcess);
     ResumeThread(pi.hThread);

@@ -1,12 +1,12 @@
-#include "bbport_write_log.h"
-// bbport: glue between the C loader and the vendored shadPS4 video core.
-#include "bbport_overlay.h"
-#include "bbport_settings.h"
-#include "bbport_copy.h"
+#include "wbp_write_log.h"
+// wbp: glue between the C loader and the vendored shadPS4 video core.
+#include "wbp_overlay.h"
+#include "wbp_settings.h"
+#include "wbp_copy.h"
 #ifndef _WIN32
 #include <sys/resource.h>
 #endif
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -118,7 +118,7 @@ static void CopySparseSerial(VAddr source, u8* dest, u64 size) {
     }
 }
 void MemoryManager::CopySparseMemory(VAddr source, u8* dest, u64 size) {
-    // bbport: large uploads (streaming) are split across the copy threads.
+    // wbp: large uploads (streaming) are split across the copy threads.
     constexpr u64 Chunk = 512 * 1024;
     if (size < 4 * Chunk || !BbCopy::Enabled()) {
         return CopySparseSerial(source, dest, size);

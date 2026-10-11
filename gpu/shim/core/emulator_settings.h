@@ -1,4 +1,4 @@
-// bbport: shadPS4 settings used by the video core, read once from BB_* environment
+// wbp: shadPS4 settings used by the video core, read once from BB_* environment
 // variables (defaults match shadPS4 except the pipeline cache, which is on).
 #pragma once
 #include <algorithm>
@@ -27,10 +27,10 @@ public:
     u32 GetInternalScreenHeight() { static const auto value = u32(Number("BB_INTERNAL_HEIGHT", 1080)); return value; }
     std::string GetPresentMode() { const char* v = std::getenv("BB_PRESENT_MODE"); return v ? v : "Mailbox"; }
     int GetRcasAttenuation() { static const auto value = int(Number("BB_RCAS_ATTENUATION", 250)); return value; }
-    // bbport: Relaxed by default: without readbacks FaceGen reads stale GPU-written vertices
+    // wbp: Relaxed by default: without readbacks FaceGen reads stale GPU-written vertices
     // (vertex explosions); in Hunter's Nightmare it costs no measurable frame rate.
     u32 GetReadbacksMode() { static const auto value = u32(Number("BB_READBACKS", GpuReadbacksMode::Relaxed)); return value; }
-    // bbport: BB_VBLANK_HZ=0 (uncapped presets): vblank runs at 480 Hz so a finished frame is
+    // wbp: BB_VBLANK_HZ=0 (uncapped presets): vblank runs at 480 Hz so a finished frame is
     // shown within ~2 ms instead of waiting for the next display-rate vblank (below the display
     // rate frames alternated 10/20 ms at 100 Hz: judder), and GetFrameLimit() caps the rate at
     // the display refresh, at most 120 (above ~120 FPS movement timing breaks: running slows).
@@ -72,7 +72,7 @@ public:
     bool IsVkValidationEnabled() { static const auto value = Flag("BB_VK_VALIDATION", false); return value; }
     bool IsVkValidationGpuEnabled() { return false; }
     bool IsVkValidationSyncEnabled() { static const auto value = Flag("BB_VK_VALIDATION_SYNC", false); return value; }
-    // bbport co-op: online play through a shadNet server (BB_ONLINE=1, set by the launcher).
+    // wbp co-op: online play through a shadNet server (BB_ONLINE=1, set by the launcher).
     static std::string Text(const char* name, const char* fallback) {
         const char* v = std::getenv(name);
         return v && v[0] ? v : fallback;

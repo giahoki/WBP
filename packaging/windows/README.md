@@ -1,7 +1,7 @@
-# bbport on Windows
+# WBP on Windows
 
 The port builds and runs natively on 64-bit Windows 10 (1903+) / 11 with the same sources as
-on Linux. Players: see `README-Windows.txt` (it ships in the package).
+on Linux. Players: see the main `README.md` (it ships in the package).
 
 ## Build
 
@@ -25,10 +25,10 @@ FSR-Vulkan, Dear ImGui, magic_enum, miniz, xbyak and LibAtrac9 are part of the r
 repository:
 
 ```bash
-bash build.sh                      # out/bb-probe.exe, out/bb-gpu-capabilities.exe, out/Bloodborne.exe
+bash build.sh                      # out/wbp-game.exe, out/bb-gpu-capabilities.exe, out/Bloodborne.exe
 out/Bloodborne.exe                 # the launcher
 BB_GAME_DIR=F:/path/to/CUSA03173 out/Bloodborne.exe --run   # the game without the window
-bash packaging/windows/package.sh  # dist/bbport-windows/ and .zip
+bash packaging/windows/package.sh  # dist/WBP/ and .zip
 ```
 
 `Bloodborne.exe` (`launcher/`, C++20, linked statically) is the launcher window (GLFW,
@@ -47,16 +47,16 @@ From a source tree it adds `C:\msys64\clang64\bin` (or `$MSYS2_ROOT`) to `PATH` 
 `bash tools/fetch_fsr4_assets.sh` works in the CLANG64 shell as on Linux.
 
 DLSS (optional): `DLSS_SDK_ROOT=<checkout of github.com/NVIDIA/DLSS> bash
-packaging/windows/build_dlss.sh` builds `bbport_dlss.dll` (`gpu/dlss_bridge`, the only code that
+packaging/windows/build_dlss.sh` builds `wbp_dlss.dll` (`gpu/dlss_bridge`, the only code that
 uses the NVIDIA SDK, compiled with MSVC 2022) and copies it with `nvngx_dlss.dll` next to
-`out/bb-probe.exe`; `package.sh` ships both when present. The renderer loads the bridge at run
+`out/wbp-game.exe`; `package.sh` ships both when present. The renderer loads the bridge at run
 time (`vk_dlss.cpp`), adds the Vulkan extensions NGX asks for, and DLSS gets the same inputs as
 FSR 3 (scene color, depth, render-pixel motion vectors, jitter). `BB_DLSS=0` turns it off.
 
 The launcher texts are written in English with the Russian beside them (`T("en", "ru")`);
 the other languages are in `launcher/lang/<code>.lng` (English text, a tab, the translation; a
 missing text falls back to English). The icon (`launcher/bloodborne.ico`) is built into
-`Bloodborne.exe`, `bb-probe.exe` (the game window) and `bb-gpu-capabilities.exe`.
+`Bloodborne.exe`, `wbp-game.exe` (the game window) and `bb-gpu-capabilities.exe`.
 
 ## What is different from Linux
 
@@ -68,7 +68,7 @@ missing text falls back to English). The icon (`launcher/bloodborne.ico`) is bui
 | SIGSEGV handler, `sigsetjmp` recovery | Vectored exception handler; `bb_setjmp`/`bb_longjmp` (`src/compat_win.c`) restore all Win64 callee-saved registers without SEH unwinding (guest frames have no unwind data; clang's `__builtin_longjmp` restores a wrong frame pointer on Win64). |
 | Guest thread stacks from `runtime_low_map` | Windows allocates them, fully committed (`pthread_attr_setstacksize`): guest code has no stack probes and would skip the guard page. The main thread stack is 16 MiB committed. |
 | glibc `nanosleep`, monotonic condition variables | High-resolution waitable timers (`compat_sleep_ns`; winpthreads' sleep rounds to 15.6 ms); semaphore deadlines use `CLOCK_REALTIME` (winpthreads rejects monotonic condition variables). |
-| `libbbgpu.so` | `libbbgpu.a`, linked into `bb-probe.exe` by CMake (`gpu/CMakeLists.txt`), with a manifest for UTF-8 paths and long paths. |
+| `libbbgpu.so` | `libbbgpu.a`, linked into `wbp-game.exe` by CMake (`gpu/CMakeLists.txt`), with a manifest for UTF-8 paths and long paths. |
 | `execlp bash run.sh` (in-game restart) | `Bloodborne.exe --run` puts its command line in `BB_RESTART_COMMAND`; the new launch waits for the old process (`--after PID`). The launcher keeps the game in a job object. |
 | Mod overlay with symlinks | Symlinks when allowed (Developer Mode), else junctions for folders and hard links for files. |
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// bbport: temporal upscaling of Bloodborne's HDR scene color (docs/RENDER.md). BB_UPSCALER=fsr3
+// wbp: temporal upscaling of Bloodborne's HDR scene color (docs/RENDER.md). BB_UPSCALER=fsr3
 // runs FSR 3.1 (FireBurn/FSR-Vulkan, native Vulkan) on the scene color right before the
 // post-processing combine pass, with the scene depth and camera motion vectors, and writes the
 // result back so the game's own post, tonemap and UI continue unchanged (Native AA preset).
@@ -66,10 +66,10 @@ public:
     /// Start of a frame in the command stream (display pass).
     bool OnFrameStart();
     bool RasterScaling() const;
-    /// bbport: LOD bias for scene materials, log2(render / output) while a reduced scene is
+    /// wbp: LOD bias for scene materials, log2(render / output) while a reduced scene is
     /// upscaled (0 at native size, for TAA and without an upscaler).
     [[nodiscard]] float SceneMipBias() const;
-    /// bbport: the state RedirectColor/RedirectDepth/RasterScaling depend on, for memoizing a
+    /// wbp: the state RedirectColor/RedirectDepth/RasterScaling depend on, for memoizing a
     /// draw's render state (Rasterizer::BeginRendering).
     [[nodiscard]] u64 RedirectState() const noexcept {
         return u64(ui_phase) | u64(display_redirect) << 1 | u64(done_this_frame) << 2 |
@@ -123,7 +123,7 @@ public:
     bool DisplayOverride(VAddr address, Display& display);
 
 private:
-    /// bbport: views of guest images the upscaler reads, kept across frames: FSR 4 registers
+    /// wbp: views of guest images the upscaler reads, kept across frames: FSR 4 registers
     /// images by view in a registry of eight (a new view per frame filled it at Native AA).
     vk::ImageView CachedView(const VideoCore::Image& image, vk::Format format,
                              vk::ImageAspectFlags aspect);
@@ -165,7 +165,7 @@ private:
     bool RecordReactive(vk::ImageView color_view);
     /// FSR 4 is selected, possible in this session (not BB_RENDER_RES) and has not failed.
     [[nodiscard]] bool UseFsr4() const;
-    /// bbport: DLSS selected and the bridge is ready (NVIDIA RTX, bbport_dlss.dll).
+    /// wbp: DLSS selected and the bridge is ready (NVIDIA RTX, wbp_dlss.dll).
     [[nodiscard]] bool UseDlss() const;
     /// Records DLSS into `cmdbuf` (output in General). `hdr`: linear scene color input.
     bool RecordDlss(vk::CommandBuffer cmdbuf, const Dlss::Resource& color,

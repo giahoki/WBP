@@ -33,12 +33,12 @@ std::wstring ExePath() {
 }
 
 // Never copied over an installation by an update (the package does not hold them either).
-const char* USER_FILES[] = {"user", "out", "mods", "bbport.ini", "mods.json", "patches.json", "last_run.log"};
+const char* USER_FILES[] = {"user", "out", "mods", "wbp.ini", "mods.json", "patches.json", "last_run.log"};
 
 fs::path UpdateDir() {
     wchar_t temp[MAX_PATH + 1];
     GetTempPathW(MAX_PATH + 1, temp);
-    return fs::path(temp) / L"bbport-update";
+    return fs::path(temp) / L"wbp-update";
 }
 
 // ---- Steam's shortcuts.vdf: binary KeyValues (0 map, 1 string, 2 int32, 7 uint64, 8 end) ----

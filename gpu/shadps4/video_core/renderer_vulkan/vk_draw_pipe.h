@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// bbport: two-stage draw pipeline (docs/RENDER.md, "Two-stage draw pipeline").
+// wbp: two-stage draw pipeline (docs/RENDER.md, "Two-stage draw pipeline").
 //
 // The GPU command thread (stage A) decodes PM4, keeps the register file and selects pipelines;
 // for a direct draw it writes a packet (the register blocks changed since the previous packet,
@@ -12,7 +12,7 @@
 #pragma once
 
 #include <cstdlib>
-#include "bbport_threads.h"
+#include "wbp_threads.h"
 
 #include <array>
 #include <atomic>

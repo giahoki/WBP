@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// bbport: FSR 4.1.1 (AMD's INT8 model of the 4.1.1 upscaler DLL) on Vulkan, replaying what the DLL
+// wbp: FSR 4.1.1 (AMD's INT8 model of the 4.1.1 upscaler DLL) on Vulkan, replaying what the DLL
 // does on D3D12 (docs/RENDER.md; the asset sets, SPIR-V of every pass and the model weights,
 // were built from recorded D3D12 frames).
 //

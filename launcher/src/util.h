@@ -59,10 +59,13 @@ void Say(std::string_view line);
 void SayError(std::string_view line);
 
 // The folder of Bloodborne.exe (the port), the data folder (BB_DATA_DIR or the port) and the
-// launcher's own settings folder (%APPDATA%/bbport-launcher).
+// launcher's own settings folder (%APPDATA%/wbp-launcher).
 const fs::path& PortDir();
 const fs::path& DataDir();
 fs::path ConfigDir();
+// Before the rename to WBP the settings were bbport.ini and %APPDATA%/bbport-launcher: moves
+// them to the new names once, when only the old ones exist.
+void MigrateOldNames();
 std::string Env(const char* name, std::string_view fallback = {});
 bool HasEnv(const char* name);
 

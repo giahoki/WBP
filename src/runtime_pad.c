@@ -1,6 +1,6 @@
 /* libScePad on SDL3 gamepads plus keyboard and mouse. SDL events are pumped by the
  * window thread (gpu/shim/window.cpp); here state is only sampled. Keyboard and mouse
- * work by action with bindings from bbport.ini (sample_bindings), next to a gamepad. */
+ * work by action with bindings from wbp.ini (sample_bindings), next to a gamepad. */
 #define _GNU_SOURCE
 #include "runtime.h"
 #include "gpu/bbgpu.h"
@@ -84,7 +84,7 @@ static SDL_Gamepad *current_gamepad(void) {
     }
     return gamepad;
 }
-/* Keyboard and mouse, by action, as in the PC Souls games: bbport.ini key_<action>=binding|binding
+/* Keyboard and mouse, by action, as in the PC Souls games: wbp.ini key_<action>=binding|binding
  * (the launcher's Controls page edits them; an empty value unbinds). A binding is an SDL key name
  * ("Space", "Return", "Left Shift", "F"), Mouse1..Mouse5 or WheelUp/WheelDown, optionally after
  * Shift+, Ctrl+ or Alt+. A binding with a modifier wins over the same input without one
@@ -132,7 +132,7 @@ static const Action actions[]={
 #define MAX_BINDINGS 4
 static Input bound[ACTION_COUNT][MAX_BINDINGS];
 static uint8_t bound_count[ACTION_COUNT];
-/* input_mode=native (the default; bbport.ini, BB_INPUT_MODE): the actions that share a pad
+/* input_mode=native (the default; wbp.ini, BB_INPUT_MODE): the actions that share a pad
  * button with another one press only their own game actions through runtime_input.c instead
  * of the button (dodge_run, run and back on circle). emulation: every action presses its button.
  * Native extras: menu (Escape) is also menu back, which closes shops and other menus that
@@ -233,7 +233,7 @@ static void bind_list(size_t a, const char *list) {
         else if (*tok) printf("Runtime: unknown key binding '%s' for %s\n",tok,actions[a].name);
     }
 }
-/* Defaults, then the key_<action> lines of bbport.ini (BB_CONFIG); again when the file changes. */
+/* Defaults, then the key_<action> lines of wbp.ini (BB_CONFIG); again when the file changes. */
 static void load_bindings(void) {
     static const char *path; static int ready; static uint64_t last; static long long stamp=-1;
     const uint64_t now=now_us();
@@ -242,7 +242,7 @@ static void load_bindings(void) {
     if (!ready) {
         ready=1;
         path=getenv("BB_CONFIG");
-        if (!path || !*path) path="bbport.ini";
+        if (!path || !*path) path="wbp.ini";
         for (size_t a=0;a<ACTION_COUNT;++a) bind_list(a,actions[a].defaults);
         set_mode(1);
     }

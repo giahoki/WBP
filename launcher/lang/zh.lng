@@ -8,7 +8,7 @@ Advanced	高级
 Log	日志
 PLAY	开始游戏
 Stop	停止
-native port · Windows	原生移植 · Windows
+Windows Bloodborne Port	Windows Bloodborne Port
 In the game: Insert or L3+R3\nopens the port's menu.	游戏中：Insert 或 L3+R3\n打开移植版菜单。
 Ready check	就绪检查
 Quick settings	快速设置
@@ -38,7 +38,7 @@ Restarting with the new settings…	正在以新设置重新启动…
 \n— the game exited (code {}) —\n	\n— 游戏已退出（代码 {}）—\n
 Could not start: {}	无法启动：{}
 Choose the game folder with eboot.bin (CUSA03173).	请选择包含 eboot.bin 的游戏文件夹（CUSA03173）。
-Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	保存在 bbport.ini 中；游戏内菜单（Insert 或 L3+R3）会修改相同的值。
+Stored in wbp.ini; the in-game menu (Insert or L3+R3) changes the same values.	保存在 wbp.ini 中；游戏内菜单（Insert 或 L3+R3）会修改相同的值。
 Upscaling	超分辨率
 Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	使用游戏自身运动矢量的时间性超分辨率。FSR 4 需要其文件（见下方）和支持 INT8 的显卡；否则游戏会自动改用 FSR 3.1。
 Quality preset	画质预设

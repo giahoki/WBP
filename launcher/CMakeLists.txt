@@ -1,7 +1,7 @@
 # Bloodborne.exe: the launcher (GLFW window, Direct3D 11 + Direct2D) and the game preparation
 # that runs before every launch (successor of the Python launcher and scripts). MSYS2 CLANG64.
 cmake_minimum_required(VERSION 3.20)
-project(bbport_launcher LANGUAGES C CXX RC)
+project(wbp_launcher LANGUAGES C CXX RC)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

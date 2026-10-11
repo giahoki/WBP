@@ -3,7 +3,7 @@
 
 #include <xxhash.h>
 
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "common/assert.h"
 #include "common/debug.h"
 #include "common/div_ceil.h"
@@ -59,7 +59,7 @@ TextureCache::TextureCache(const Vulkan::Instance& instance_, Vulkan::Scheduler&
         std::max<u64>(std::min(device_local_memory - min_vacancy_critical, min_spacing_critical),
                       DEFAULT_CRITICAL_GC_MEMORY));
     trigger_gc_memory = static_cast<u64>((device_local_memory - mem_threshold) / 2);
-    // bbport: on a 4 GB card the budget is about 3 GB, so the fixed floors (1.5 and 3 GB) put
+    // wbp: on a 4 GB card the budget is about 3 GB, so the fixed floors (1.5 and 3 GB) put
     // the critical mark at the whole budget: the cache kept 3.5 GB of images, the driver moved
     // the rest to system memory and the game ran at 16 FPS. Keep the marks inside the budget.
     if (device_local_memory > 0) {
@@ -1030,7 +1030,7 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
 void TextureCache::GarbageCollectImages() {
     if (instance.CanReportMemoryUsage()) {
         total_used_memory = instance.GetDeviceMemoryUsage();
-        // bbport: on integrated GPUs (Steam Deck) the usage covers system-memory heaps holding
+        // wbp: on integrated GPUs (Steam Deck) the usage covers system-memory heaps holding
         // much more than images (buffers backing guest memory), and the startup budget left
         // ~1 GB after its 8 GB system reserve: usage stayed above the critical mark, so the
         // collector evicted images used two or three frames ago on every submission and wrote
@@ -1081,7 +1081,7 @@ void TextureCache::GarbageCollectImages() {
             return false;
         }
         if (download) {
-            // bbport: synchronously, while the image still protects its pages. A deferred
+            // wbp: synchronously, while the image still protects its pages. A deferred
             // write-back landed after FreeImage had unprotected them, over whatever the game
             // had meanwhile stored there (e.g. its heap after unloading an area).
             DownloadImageMemory(image_id, true);
@@ -1112,7 +1112,7 @@ void TextureCache::GarbageCollectImages() {
         configure(true);
         lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
     }
-    // bbport: evictions under memory pressure, at most every 5 s (BB_FRAME_STATS or not).
+    // wbp: evictions under memory pressure, at most every 5 s (BB_FRAME_STATS or not).
     if (pressured || gc_downloads != 0) {
         const auto now = std::chrono::steady_clock::now();
         if (now - gc_report_time >= std::chrono::seconds(5)) {

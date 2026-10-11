@@ -97,7 +97,7 @@ public:
 
     void FlushBarriers();
 
-    /// bbport: runs before this thread changes image state (layouts, pending image
+    /// wbp: runs before this thread changes image state (layouts, pending image
     /// barriers): the rasterizer joins its texture binding helper there (BindHelper).
     void SetImageAccessHook(void (*hook)(void*), void* context) {
         image_access_hook = hook;
@@ -119,7 +119,7 @@ private:
     BarrierTracker barrier_tracker;
     VideoCore::Image::Barriers image_barriers;
     vk::MemoryBarrier2 memory_barrier{};
-    // bbport: ranges inserted into barrier_tracker since its last Clear(); re-inserting a
+    // wbp: ranges inserted into barrier_tracker since its last Clear(); re-inserting a
     // contained range is a no-op, and draws re-bind the same ranges constantly.
     struct AccessMemo {
         u64 resource;

@@ -12,7 +12,7 @@
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/renderdoc.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
-#include "bbport_overlay.h"
+#include "wbp_overlay.h"
 #include "video_core/renderer_vulkan/vk_temporal_upscaler.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
@@ -38,7 +38,7 @@
 #include <vector>
 #include <vk_mem_alloc.h>
 #ifdef MemoryBarrier
-#undef MemoryBarrier // bbport: winnt.h macro (through fmt), clashes with vk::MemoryBarrier
+#undef MemoryBarrier // wbp: winnt.h macro (through fmt), clashes with vk::MemoryBarrier
 #endif
 
 namespace Vulkan {
@@ -124,7 +124,7 @@ static vk::Rect2D FitImage(s32 frame_width, s32 frame_height, s32 swapchain_widt
                          dst_rect.offset.x, dst_rect.offset.y);
 }
 
-// bbport: screenshot capture and ImGui overlays removed; the port presents directly.
+// wbp: screenshot capture and ImGui overlays removed; the port presents directly.
 
 Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_)
     : window{window_}, liverpool{liverpool_},
@@ -316,7 +316,7 @@ static vk::Format GetFrameViewFormat(const Libraries::VideoOut::PixelFormat form
     return {};
 }
 
-// bbport: raw copy of an image for BB_FRAME_DUMP_TRIGGER, written once the GPU is done.
+// wbp: raw copy of an image for BB_FRAME_DUMP_TRIGGER, written once the GPU is done.
 static void DumpRaw(const Instance& instance, Scheduler& scheduler, vk::CommandBuffer cmdbuf,
                     vk::Image image, vk::ImageLayout layout, u32 w, u32 h, const char* name,
                     int index) {
@@ -353,13 +353,13 @@ static void DumpRaw(const Instance& instance, Scheduler& scheduler, vk::CommandB
 
 Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
                                VAddr cpu_address) {
-    // bbport: BB_FRAME_DUMP_TRIGGER=<file>: when the file exists it is removed and this frame's
+    // wbp: BB_FRAME_DUMP_TRIGGER=<file>: when the file exists it is removed and this frame's
     // guest display buffer and presented image are written to BB_DUMP_DIR (default out/dump)
     // as raw 32-bit pixels (menus and movies included; the upscaler dumps scene frames only).
     static const char* frame_dump_trigger = std::getenv("BB_FRAME_DUMP_TRIGGER");
     static int frame_dump_index = 0;
     const bool frame_dump = frame_dump_trigger && std::remove(frame_dump_trigger) == 0;
-    // bbport: scaled upscaler presets: the output-size display buffer drawn by the port.
+    // wbp: scaled upscaler presets: the output-size display buffer drawn by the port.
     TemporalUpscaler::Display display{};
     const bool upscaled = rasterizer->GetUpscaler().DisplayOverride(cpu_address, display);
     VideoCore::ImageId image_id{};
@@ -472,7 +472,7 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
     SubmitInfo info{};
     draw_scheduler.Flush(info);
 
-    // bbport: the GPU command thread runs at most BB_FRAMES_AHEAD (default 1) guest frames
+    // wbp: the GPU command thread runs at most BB_FRAMES_AHEAD (default 1) guest frames
     // ahead of the GPU: it waits here for the frame that many flips back. When the GPU is the
     // bottleneck it finishes frames at an even rate; without this bound the command thread ran
     // ahead and then blocked wherever a resource ran out, so flips (and the guest's frame
@@ -578,7 +578,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
         }
     };
 
-    // bbport: a minimized window has no pixels on Windows (0x0); keep the swapchain and skip
+    // wbp: a minimized window has no pixels on Windows (0x0); keep the swapchain and skip
     // presenting until the window is restored.
     if (window.GetWidth() == 0 || window.GetHeight() == 0) {
         free_frame();
@@ -607,7 +607,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
     ASSERT_MSG(reset_result == vk::Result::eSuccess,
                "Unexpected error resetting present done fence: {}", vk::to_string(reset_result));
 
-    // bbport: the game frame is blitted (letterboxed) straight into the swapchain image.
+    // wbp: the game frame is blitted (letterboxed) straight into the swapchain image.
     const vk::Image swapchain_image = swapchain.Image();
     auto& scheduler = present_scheduler;
     const auto cmdbuf = scheduler.CommandBuffer();
@@ -665,7 +665,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
                          vk::ImageLayout::eTransferDstOptimal,
                          MakeImageBlitFit(frame->width, frame->height, extent.width, extent.height),
                          vk::Filter::eLinear);
-        // bbport: the settings menu / FPS counter over the frame, at display resolution.
+        // wbp: the settings menu / FPS counter over the frame, at display resolution.
         const bool overlay = BbOverlay::Visible();
         const std::array post_barriers{
             vk::ImageMemoryBarrier{

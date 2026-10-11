@@ -19,7 +19,7 @@ static void inject(const char *path, const char *tokens) {
 }
 
 int main(void) {
-    char path[]="/tmp/bbport-pad-test-XXXXXX";
+    char path[]="/tmp/wbp-pad-test-XXXXXX";
     int fd=mkstemp(path);
     assert(fd>=0);
     close(fd);
@@ -47,7 +47,7 @@ int main(void) {
     desc.nbuttons=SDL_GAMEPAD_BUTTON_COUNT;
     desc.button_mask=(1u<<SDL_GAMEPAD_BUTTON_COUNT)-1;
     desc.axis_mask=(1u<<SDL_GAMEPAD_AXIS_COUNT)-1;
-    desc.name="bbport test controller";
+    desc.name="wbp test controller";
     desc.vendor_id=0x1d50;
     desc.product_id=0x6189;
     desc.ntouchpads=1;

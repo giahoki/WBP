@@ -8,7 +8,7 @@ Advanced	متقدم
 Log	السجل
 PLAY	العب
 Stop	إيقاف
-native port · Windows	منفذ أصلي · ويندوز
+Windows Bloodborne Port	Windows Bloodborne Port
 In the game: Insert or L3+R3\nopens the port's menu.	داخل اللعبة: Insert أو L3+R3\nيفتح قائمة المنفذ.
 Ready check	فحص الجاهزية
 Quick settings	إعدادات سريعة
@@ -38,7 +38,7 @@ Restarting with the new settings…	إعادة التشغيل بالإعدادا
 \n— the game exited (code {}) —\n	\n— أُغلقت اللعبة (الرمز {}) —\n
 Could not start: {}	تعذّر التشغيل: {}
 Choose the game folder with eboot.bin (CUSA03173).	اختر مجلد اللعبة الذي يحتوي eboot.bin (CUSA03173).
-Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	محفوظة في bbport.ini؛ قائمة اللعبة (Insert أو L3+R3) تغيّر القيم نفسها.
+Stored in wbp.ini; the in-game menu (Insert or L3+R3) changes the same values.	محفوظة في wbp.ini؛ قائمة اللعبة (Insert أو L3+R3) تغيّر القيم نفسها.
 Upscaling	التكبير
 Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	تكبير زمني باستخدام متجهات الحركة الخاصة باللعبة. يحتاج FSR 4 إلى ملفاته (بالأسفل) وبطاقة تدعم INT8؛ وإلا تعود اللعبة تلقائيًا إلى FSR 3.1.
 Quality preset	إعداد الجودة

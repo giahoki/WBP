@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#include <cmath> // bbport: libc++ does not include these transitively
+#include <cmath> // wbp: libc++ does not include these transitively
 #include <mutex>
 #include <new>
 #include <FidelityFX/host/ffx_interface.h>

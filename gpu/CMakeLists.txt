@@ -1,4 +1,4 @@
-# bbport GPU library: shadPS4 video core + shader recompiler + Gnm/VideoOut
+# wbp GPU library: shadPS4 video core + shader recompiler + Gnm/VideoOut
 # drivers, adapted to the native_probe runtime through shims in shim/.
 cmake_minimum_required(VERSION 3.24)
 project(bbgpu LANGUAGES C CXX)
@@ -16,7 +16,7 @@ endif()
 # Frame pointers keep the loader's thread dumps (watchdog, SIGUSR2 sampling) walkable.
 add_compile_options(-fno-omit-frame-pointer)
 
-# bbport: link-time optimization (BB_LTO, default on) and profile-guided optimization
+# wbp: link-time optimization (BB_LTO, default on) and profile-guided optimization
 # (BB_PGO: off, generate = instrumented build writing into BB_PGO_DIR, use = build with that
 # profile). Covers bbgpu and the static libraries linked into it. No -march: the same build
 # runs on the Steam Deck.
@@ -33,17 +33,17 @@ if (BB_LTO)
     endif()
 endif()
 if (BB_PGO STREQUAL "generate" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    # Clang (Windows, MSYS2 CLANG64): IR instrumentation writing BB_PGO_DIR/bbport_%m.profraw
-    # (%m: the processes merge into the same files). build.sh merges them into bbport.profdata.
+    # Clang (Windows, MSYS2 CLANG64): IR instrumentation writing BB_PGO_DIR/wbp_%m.profraw
+    # (%m: the processes merge into the same files). build.sh merges them into wbp.profdata.
     add_compile_options(-fprofile-generate=${BB_PGO_DIR} -fprofile-update=atomic)
     add_link_options(-fprofile-generate=${BB_PGO_DIR})
     add_compile_definitions(BB_PGO_GENERATE BB_PGO_CLANG)
 elseif (BB_PGO STREQUAL "use" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # Functions changed since the profile are compiled without it (no hard errors).
-    add_compile_options(-fprofile-use=${BB_PGO_DIR}/bbport.profdata -Wno-profile-instr-unprofiled
+    add_compile_options(-fprofile-use=${BB_PGO_DIR}/wbp.profdata -Wno-profile-instr-unprofiled
                         -Wno-profile-instr-out-of-date -Wno-profile-instr-missing
                         -Wno-backend-plugin)
-    add_link_options(-fprofile-use=${BB_PGO_DIR}/bbport.profdata)
+    add_link_options(-fprofile-use=${BB_PGO_DIR}/wbp.profdata)
 elseif (BB_PGO STREQUAL "generate")
     # Atomic counters: the GPU, recording, preparation and copy threads run the same code.
     add_compile_options(-fprofile-generate=${BB_PGO_DIR} -fprofile-update=atomic)
@@ -60,7 +60,7 @@ endif()
 find_package(Vulkan REQUIRED)
 find_package(fmt REQUIRED)
 find_package(Boost REQUIRED)
-# bbport (Windows): MSYS2 has no magic_enum/miniz packages; the submodules are used instead.
+# wbp (Windows): MSYS2 has no magic_enum/miniz packages; the submodules are used instead.
 find_package(magic_enum QUIET)
 if (NOT magic_enum_FOUND)
     add_library(magic_enum INTERFACE)
@@ -100,7 +100,7 @@ find_program(GLSLANG_COMPILER NAMES glslang glslangValidator REQUIRED)
 set(SIRIT_USE_SYSTEM_SPIRV_HEADERS OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/sirit EXCLUDE_FROM_ALL)
 
-# bbport: FSR 3.1 temporal upscaling / frame generation, native Vulkan (MIT, FireBurn/FSR-Vulkan).
+# wbp: FSR 3.1 temporal upscaling / frame generation, native Vulkan (MIT, FireBurn/FSR-Vulkan).
 set(FFX_VK_PORTABLE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(FFX_VK_PORTABLE_BUILD_PROBE OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/fsr-vulkan EXCLUDE_FROM_ALL)
@@ -159,7 +159,7 @@ set(COMMON
 file(GLOB AVPLAYER CONFIGURE_DEPENDS shadps4/core/libraries/avplayer/*.cpp)
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavformat libavcodec libavutil libswscale libswresample)
 file(GLOB SHIM_SOURCES CONFIGURE_DEPENDS shim/*.cpp shim/*/*.cpp)
-# Windows: a DLL cannot leave the runtime_* symbols for bb-probe.exe to resolve, so the
+# Windows: a DLL cannot leave the runtime_* symbols for wbp-game.exe to resolve, so the
 # library is static there and linked into the executable.
 if (WIN32)
     set(BBGPU_KIND STATIC)
@@ -172,7 +172,7 @@ add_library(bbgpu ${BBGPU_KIND} ${VIDEO_CORE} ${RECOMPILER} ${COMMON} ${SHIM_SOU
     shadps4/core/libraries/kernel/equeue.cpp ${AVPLAYER}
     shadps4/core/libraries/videodec/video_utils.cpp)
 add_dependencies(bbgpu host_shaders)
-# bbport co-op: PS4 network and PSN libraries with the shadNet client, from shadp2p
+# wbp co-op: PS4 network and PSN libraries with the shadNet client, from shadp2p
 # (github.com/Wozzardman/shadp2p, GPL-2.0), for private Bloodborne co-op servers.
 find_package(Protobuf CONFIG REQUIRED)
 set(SHADNET_PROTO_OUT "${CMAKE_CURRENT_BINARY_DIR}/shadnet_proto_gen")
@@ -226,12 +226,12 @@ target_sources(bbgpu PRIVATE third_party/imgui/imgui.cpp third_party/imgui/imgui
 target_include_directories(bbgpu PRIVATE third_party/imgui third_party/imgui/backends)
 target_compile_definitions(bbgpu PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES
     BB_FONT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/third_party/fonts/DejaVuSans.ttf")
-set_source_files_properties(shim/bbport_overlay.cpp PROPERTIES
+set_source_files_properties(shim/wbp_overlay.cpp PROPERTIES
     OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fonts/DejaVuSans.ttf)
 target_include_directories(bbgpu PRIVATE shim shadps4 ${SHADER_INCLUDE} third_party/gcn/include third_party/half/include)
 target_compile_definitions(bbgpu PRIVATE BOOST_ASIO_STANDALONE NDEBUG)
 target_compile_options(bbgpu PRIVATE -Wno-deprecated-declarations -Wno-missing-field-initializers)
-# Runtime symbols (runtime_memory_*, runtime_process_*) resolve against bb-probe.
+# Runtime symbols (runtime_memory_*, runtime_process_*) resolve against wbp-game.
 if (NOT WIN32)
     target_link_options(bbgpu PRIVATE -Wl,--allow-shlib-undefined)
 endif()
@@ -249,7 +249,7 @@ else()
     target_link_libraries(bbgpu PUBLIC PkgConfig::X11)
 endif()
 
-# bbport (Windows): bbgpu is a static library there, so the loader and the HLE runtime are
+# wbp (Windows): bbgpu is a static library there, so the loader and the HLE runtime are
 # linked here, where CMake knows its dependencies (build.sh builds them with ninja).
 if (WIN32)
     enable_language(RC)
@@ -258,15 +258,15 @@ if (WIN32)
     add_library(atrac9 STATIC ${BB_ATRAC9})
     target_compile_options(atrac9 PRIVATE -w)
     set_target_properties(atrac9 PROPERTIES C_STANDARD 99 INTERPROCEDURAL_OPTIMIZATION OFF)
-    add_executable(bb-probe ../src/probe.c ${BB_RUNTIME} ../src/compat_win.c ../src/vulkan_smoke.c
-        ../packaging/windows/bb-probe.rc)
-    set_target_properties(bb-probe PROPERTIES C_STANDARD 11 C_EXTENSIONS OFF)
-    target_compile_options(bb-probe PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wall -Wextra -Werror>)
-    target_include_directories(bb-probe PRIVATE .. ../src)
-    target_link_libraries(bb-probe PRIVATE bbgpu atrac9 onecore bcrypt ws2_32 -pthread)
+    add_executable(wbp-game ../src/probe.c ${BB_RUNTIME} ../src/compat_win.c ../src/vulkan_smoke.c
+        ../packaging/windows/wbp-game.rc)
+    set_target_properties(wbp-game PROPERTIES C_STANDARD 11 C_EXTENSIONS OFF)
+    target_compile_options(wbp-game PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wall -Wextra -Werror>)
+    target_include_directories(wbp-game PRIVATE .. ../src)
+    target_link_libraries(wbp-game PRIVATE bbgpu atrac9 onecore bcrypt ws2_32 -pthread)
     # The PS4 range (64 GiB - 1 TiB) must stay free: no high-entropy ASLR for heaps and stacks.
     # The guest main thread runs on the process stack: 16 MiB, committed (no stack probes).
-    target_link_options(bb-probe PRIVATE -Wl,--disable-high-entropy-va "SHELL:-Xlinker --stack -Xlinker 16777216,16777216")
+    target_link_options(wbp-game PRIVATE -Wl,--disable-high-entropy-va "SHELL:-Xlinker --stack -Xlinker 16777216,16777216")
     add_executable(bb-gpu-capabilities ../tools/gpu_capabilities.c ../packaging/windows/bb-gpu-capabilities.rc)
     target_link_libraries(bb-gpu-capabilities PRIVATE Vulkan::Vulkan)
     # "Play Bloodborne.exe": the game with the launcher's saved settings, no launcher window.
@@ -308,9 +308,9 @@ target_compile_options(camera-motion-test PRIVATE -UNDEBUG -fPIC)
 target_link_libraries(camera-motion-test PRIVATE bbgpu)
 add_dependencies(camera-motion-test host_shaders)
 
-# bbport: FSR 4 benchmark outside the game (tools/fsr4_bench.cpp): ninja -C out/gpu fsr4-bench.
+# wbp: FSR 4 benchmark outside the game (tools/fsr4_bench.cpp): ninja -C out/gpu fsr4-bench.
 add_executable(upscaler-support-test EXCLUDE_FROM_ALL ../tests/test_upscaler_support.cpp
-    shim/bbport_settings.cpp)
+    shim/wbp_settings.cpp)
 target_include_directories(upscaler-support-test PRIVATE shim)
 target_compile_options(upscaler-support-test PRIVATE -UNDEBUG)
 

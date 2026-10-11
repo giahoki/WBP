@@ -1,4 +1,4 @@
-// bbport: fault-handler registry. The C loader's SIGSEGV handler calls
+// wbp: fault-handler registry. The C loader's SIGSEGV handler calls
 // bbgpu_handle_fault() first; registered handlers run in priority order.
 #pragma once
 #include <compare>

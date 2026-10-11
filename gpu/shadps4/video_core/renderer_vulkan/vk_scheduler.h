@@ -17,7 +17,7 @@
 #include <thread>
 #include <queue>
 
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "common/assert.h"
 #include "common/interval_set.h"
 #include "common/unique_function.h"
@@ -178,7 +178,7 @@ struct DynamicState {
     /// flags that committing clears).
     void Commit(const Instance& instance, const vk::CommandBuffer& cmdbuf);
 
-    /// bbport: passes each dirty state change to `emit` as a small command closure holding only
+    /// wbp: passes each dirty state change to `emit` as a small command closure holding only
     /// its own values (recording a copy of the whole state per draw was a hot spot), and clears
     /// the flags it emitted. Flags whose test is disabled stay dirty, as in Commit.
     template <typename Emit>
@@ -345,7 +345,7 @@ struct DynamicState {
         }
     }
 
-    /// bbport: true when Commit() would record anything. Flags that Commit() defers (their
+    /// wbp: true when Commit() would record anything. Flags that Commit() defers (their
     /// test is disabled) do not count.
     [[nodiscard]] bool AnyDirty() const noexcept {
         auto pending = dirty_state;
@@ -370,7 +370,7 @@ struct DynamicState {
 
     /// Invalidates all dynamic state to be flushed into the next command buffer.
     void Invalidate() {
-        // bbport: named flags only; padding bits set by a memset made AnyDirty() always true.
+        // wbp: named flags only; padding bits set by a memset made AnyDirty() always true.
         dirty_state.viewports = true;
         dirty_state.scissors = true;
         dirty_state.depth_test_enabled = true;
@@ -576,7 +576,7 @@ struct DynamicState {
 
 using SubmitFunc = Common::UniqueFunction<void, SubmitInfo&>;
 
-/// bbport: a block of deferred Vulkan commands. Commands are closures placed in
+/// wbp: a block of deferred Vulkan commands. Commands are closures placed in
 /// fixed storage (no allocation per command) and run in order on the recording thread.
 class RecordChunk {
 public:
@@ -682,7 +682,7 @@ public:
     /// Sends the current execution context to the GPU and waits for it to complete.
     void Finish();
 
-    /// bbport: waits for the work submitted so far but leaves the command buffer being
+    /// wbp: waits for the work submitted so far but leaves the command buffer being
     /// recorded open, so a CommandBuffer() the caller holds stays valid (Finish() submits it:
     /// recording into a submitted buffer crashes AMD's driver).
     void WaitSubmitted();
@@ -794,7 +794,7 @@ public:
     /// Waits until every recorded command is in the command buffer.
     void SyncRecording();
 
-    /// bbport: guest memory copies on the recording thread (small ones, RecordHostCopy) or the
+    /// wbp: guest memory copies on the recording thread (small ones, RecordHostCopy) or the
     /// copy threads (BbCopy::Async) must be done before the guest learns the GPU is past them
     /// (it may then rewrite the memory, e.g. UI vertices: flickering) and before the
     /// submission that reads them. Waits for all.
@@ -811,12 +811,12 @@ public:
         });
     }
 
-    /// bbport: runs `signal` once the guest memory copies issued so far are done, without
+    /// wbp: runs `signal` once the guest memory copies issued so far are done, without
     /// waiting here: the recording thread reaches it after the copies queued before it and hands
     /// it to the copy threads' completion (BbCopy::AfterCopies).
     void SignalAfterHostCopies(std::function<void()> signal);
 
-    /// bbport: before a guest-visible write that is not deferred (WriteData, end-of-shader
+    /// wbp: before a guest-visible write that is not deferred (WriteData, end-of-shader
     /// fences, flip): waits until every signal handed to SignalAfterHostCopies ran, so that
     /// the write cannot overtake an earlier fence. Otherwise the guest, seeing the later value,
     /// may free memory the earlier fence then writes into (corrupted heap, guest fault).
@@ -899,15 +899,15 @@ private:
     };
     std::queue<PendingOp> pending_ops;
     std::recursive_mutex pending_ops_mutex;
-    u32 pending_polls = 0; // bbport
-    std::atomic<u32> num_pending_ops{0}; ///< bbport: pending_ops.size(), checked without the lock
+    u32 pending_polls = 0; // wbp
+    std::atomic<u32> num_pending_ops{0}; ///< wbp: pending_ops.size(), checked without the lock
     std::queue<PendingOp> priority_pending_ops;
     std::mutex priority_pending_ops_mutex;
     std::condition_variable_any priority_pending_ops_cv;
     std::jthread priority_pending_ops_thread;
     RenderState render_state;
     bool is_rendering = false;
-    // bbport: threaded recording
+    // wbp: threaded recording
     std::unique_ptr<RecordChunk> record_chunk;
     std::vector<std::unique_ptr<RecordChunk>> full_chunks;
     std::mutex recorder_mutex;
@@ -924,7 +924,7 @@ private:
     std::atomic<u64> deferred_signals_issued{0}; ///< by the thread recording (A or B)
     std::shared_ptr<std::atomic<u64>> deferred_signals_done =
         std::make_shared<std::atomic<u64>>(0);
-    // bbport: whether recorder_thread runs, read on every Record(). std::jthread::joinable()
+    // wbp: whether recorder_thread runs, read on every Record(). std::jthread::joinable()
     // compares thread ids, which on Windows (libc++ over winpthreads) costs two system calls.
     bool recording_threaded{false};
     std::jthread recorder_thread;

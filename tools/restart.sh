@@ -3,7 +3,7 @@
 # BB_TOGGLE_FILE (out/pad, out/toggles) and enters the level (title: cross, cross).
 cd -- "$(dirname -- "$0")/.."
 T=tools
-pkill -x bb-probe; sleep 2; pkill -9 -x bb-probe; sleep 1
+pkill -x wbp-game; sleep 2; pkill -9 -x wbp-game; sleep 1
 : > out/pad; echo ${BASE_MASK:-0} > out/toggles
 BB_PAD_FILE=$PWD/out/pad BB_FRAME_STATS=1 BB_TOGGLE_FILE=$PWD/out/toggles BB_FPS_LIMIT=0 \
     ${CPUS:+taskset -c $CPUS} setsid stdbuf -oL -eL bash run.sh "$@" > out/session.log 2>&1 < /dev/null &

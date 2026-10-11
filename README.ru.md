@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🩸 Bloodborne PC
+# 🩸 WBP — Windows Bloodborne Port
 
 **Bloodborne на Windows 10 и 11 — сделан для игры мышью и клавиатурой.**
 
-[![Скачать](https://img.shields.io/github/v/release/giahoki/WBP?label=скачать&style=for-the-badge&color=8a1015)](https://github.com/giahoki/WBP/releases/latest)
+[![Скачать](https://img.shields.io/github/v/release/giahoki/WBP?label=скачать&style=for-the-badge&color=2f7383)](https://github.com/giahoki/WBP/releases/latest)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-2b2b2b?style=for-the-badge&logo=windows)](#-требования)
 [![Игра](https://img.shields.io/badge/CUSA03173-v1.09-c8a96a?style=for-the-badge)](#-как-играть)
 [![Лицензия](https://img.shields.io/badge/лицензия-GPL--2.0+-555?style=for-the-badge)](LICENSE)
@@ -153,8 +153,8 @@
 build.bat
 ```
 
-Игра, лаунчер и пакет (`dist\bbport-windows\` + zip) собираются за один раз, с ThinLTO и профилем
-из `pgo\bbport.profdata`. Как всё устроено внутри — **[docs/](docs/README.md)** (загрузчик,
+Игра, лаунчер и пакет (`dist\WBP\` + zip) собираются за один раз, с ThinLTO и профилем
+из `pgo\wbp.profdata`. Как всё устроено внутри — **[docs/](docs/README.md)** (загрузчик,
 графика, лаунчер, ввод, моды, сборка).
 
 | Часть | Язык | Где |

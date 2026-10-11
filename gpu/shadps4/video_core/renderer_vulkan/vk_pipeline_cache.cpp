@@ -336,7 +336,7 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .supports_shader_subgroup_clock = instance_.IsShaderSubgroupClockSupported(),
         .needs_manual_interpolation = instance.IsFragmentShaderBarycentricSupported() &&
                                       instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
-        // bbport: older NVIDIA (Pascal) has no barycentrics; BB_INTERP_INT_FIX=0/1 overrides.
+        // wbp: older NVIDIA (Pascal) has no barycentrics; BB_INTERP_INT_FIX=0/1 overrides.
         .needs_integer_interpolation_fix = [&] {
             if (const char* env = std::getenv("BB_INTERP_INT_FIX")) {
                 return env[0] == '1';
@@ -351,7 +351,7 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
         .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
         .supports_shader_stencil_export = instance_.IsShaderStencilExportSupported(),
     };
-    // bbport: the driver's pipeline cache is kept on disk (it was created empty every start),
+    // wbp: the driver's pipeline cache is kept on disk (it was created empty every start),
     // and before WarmUp so the preloaded pipelines come from it instead of compiling again.
     // The driver checks the header (vendor, device, driver version) and ignores a stale file.
     // BB_VK_PIPELINE_CACHE=0 turns it off.
@@ -435,7 +435,7 @@ void PipelineCache::SaveVulkanCache() {
     std::filesystem::rename(part, vk_cache_path, ec);
 }
 
-// bbport: shader/pipeline compile time on the GPU thread, reported by BB_FRAME_STATS.
+// wbp: shader/pipeline compile time on the GPU thread, reported by BB_FRAME_STATS.
 std::atomic<u64> g_bb_compile_ns;
 std::atomic<u32> g_bb_compiles;
 namespace {
@@ -910,7 +910,7 @@ PipelineCache::Result PipelineCache::GetProgram(PipelineSelection& sel, HwStage 
                                                 Shader::Backend::Bindings& binding) {
     auto runtime_info = BuildRuntimeInfo(sel, hw_stage, sw_stage);
     if (sel.worker) {
-        // bbport: draw-preparation worker: look up only, with the worker's own Info copy.
+        // wbp: draw-preparation worker: look up only, with the worker's own Info copy.
         auto& worker = *sel.worker;
         std::shared_lock lk{programs_mutex};
         const auto found_program = program_cache.find(params.hash);
@@ -987,7 +987,7 @@ PipelineCache::Result PipelineCache::GetProgram(PipelineSelection& sel, HwStage 
 
     vk::ShaderModule module{};
 
-    // bbport: consecutive draws of a program almost always use the same permutation.
+    // wbp: consecutive draws of a program almost always use the same permutation.
     auto it = program->last_used < program->modules.size() &&
                       program->modules[program->last_used].spec == spec
                   ? program->modules.begin() + program->last_used

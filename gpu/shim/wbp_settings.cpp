@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include "bbport_settings.h"
+#include "wbp_settings.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -14,7 +14,7 @@ namespace {
 
 const char* Path() {
     const char* env = std::getenv("BB_CONFIG");
-    return env && env[0] ? env : "bbport.ini";
+    return env && env[0] ? env : "wbp.ini";
 }
 
 float Clamp(float v, float lo, float hi) {
@@ -155,7 +155,7 @@ void ConfigureDlssSupport(bool available, const char* problem) {
     v.dlss_problem = available || kept.empty() ? nullptr : kept.c_str();
     if (v.upscaler == UpscalerDlss && !available) {
         std::printf("Upscaler: DLSS unavailable (%s); falling back to FSR 3.1\n",
-                    kept.empty() ? "bbport_dlss.dll or nvngx_dlss.dll missing" : kept.c_str());
+                    kept.empty() ? "wbp_dlss.dll or nvngx_dlss.dll missing" : kept.c_str());
         v.upscaler = UpscalerFsr3;
     }
 }
@@ -200,7 +200,7 @@ void Save() {
         return;
     }
     std::fprintf(file,
-                 "# bbport settings (in-game menu: Insert / L3+R3)\n"
+                 "# wbp settings (in-game menu: Insert / L3+R3)\n"
                  "upscaler=%s\npreset=%d\nsharpen=%d\nsharpness=%.2f\njitter=%d\n"
                  "reactive=%d\nobject_motion=%d\nreactive_scale=%.2f\nreactive_threshold=%.2f\nreactive_max=%.2f\n"
                  "debug_view=%d\nshow_fps=%d\nfsr4_auto_exposure=%d\nfsr4_invert_jitter=%d\n"

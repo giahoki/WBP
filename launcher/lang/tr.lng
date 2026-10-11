@@ -8,7 +8,7 @@ Advanced	Gelişmiş
 Log	Günlük
 PLAY	OYNA
 Stop	Durdur
-native port · Windows	yerel port · Windows
+Windows Bloodborne Port	Windows Bloodborne Port
 In the game: Insert or L3+R3\nopens the port's menu.	Oyunda: Insert veya L3+R3\nport menüsünü açar.
 Ready check	Hazırlık kontrolü
 Quick settings	Hızlı ayarlar
@@ -38,7 +38,7 @@ Restarting with the new settings…	Yeni ayarlarla yeniden başlatılıyor…
 \n— the game exited (code {}) —\n	\n— oyun kapandı (kod {}) —\n
 Could not start: {}	Başlatılamadı: {}
 Choose the game folder with eboot.bin (CUSA03173).	eboot.bin içeren oyun klasörünü seçin (CUSA03173).
-Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	bbport.ini içinde saklanır; oyun içi menü (Insert veya L3+R3) aynı değerleri değiştirir.
+Stored in wbp.ini; the in-game menu (Insert or L3+R3) changes the same values.	wbp.ini içinde saklanır; oyun içi menü (Insert veya L3+R3) aynı değerleri değiştirir.
 Upscaling	Ölçekleme
 Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	Oyunun kendi hareket vektörleriyle zamansal ölçekleme. FSR 4 için dosyaları (aşağıda) ve INT8 destekli bir GPU gerekir; aksi halde oyun kendiliğinden FSR 3.1’e döner.
 Quality preset	Kalite ön ayarı

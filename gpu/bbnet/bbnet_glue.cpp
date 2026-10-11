@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// bbport co-op: what the network and NP libraries from shadp2p need from the rest of
-// shadPS4, implemented on top of the bbport runtime, and their registration.
+// wbp co-op: what the network and NP libraries from shadp2p need from the rest of
+// shadPS4, implemented on top of the wbp runtime, and their registration.
 
 #include <chrono>
 #include <condition_variable>

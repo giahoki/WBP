@@ -6,8 +6,8 @@
 #include <cstring>
 
 #include <vk_mem_alloc.h>
-#include "bbport_settings.h"
-#include "bbport_toggles.h"
+#include "wbp_settings.h"
+#include "wbp_toggles.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"

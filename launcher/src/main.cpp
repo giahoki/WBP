@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Bloodborne.exe: the launcher window, and the roles without a window:
-//   --run [--after PID] [args]   prepare the game and run bb-probe.exe (the in-game restart too)
+//   --run [--after PID] [args]   prepare the game and run wbp-game.exe (the in-game restart too)
 //   --play                       the game with the launcher's saved settings (shortcuts, Steam)
 //   --install-update TARGET PID  run by a downloaded update from its temporary folder
 #define WIN32_LEAN_AND_MEAN
@@ -69,7 +69,7 @@ int RunWindow() {
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     Window win;
-    win.glfw = glfwCreateWindow(1240, 780, "Bloodborne \xe2\x80\x94 bbport", nullptr, nullptr);
+    win.glfw = glfwCreateWindow(1240, 780, "Bloodborne \xe2\x80\x94 wbp", nullptr, nullptr);
     if (!win.glfw) {
         actions::Message(nullptr, "Cannot open a window (GLFW).", true);
         return 1;
@@ -198,6 +198,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     std::vector<std::wstring> args(argv + 1, argv + argc);
     LocalFree(argv);
+    MigrateOldNames();
 
     if (!args.empty() && args[0] == L"--run") {
         AttachOutput();

@@ -9,7 +9,7 @@
 
 | Команда | Что делает |
 |---|---|
-| `build.bat` | игра (`bb-probe.exe`), лаунчер (`Bloodborne.exe`), пакет `dist\bbport-windows\` и zip |
+| `build.bat` | игра (`wbp-game.exe`), лаунчер (`Bloodborne.exe`), пакет `dist\WBP\` и zip |
 | `build.bat launcher` | только лаунчер и пакет |
 | `bash build.sh` (в CLANG64) | игра и лаунчер в `out\` без упаковки |
 | `bash build.sh --launcher` | только лаунчер |
@@ -23,30 +23,30 @@
 ## Оптимизация сборки
 
 - **ThinLTO** включён по умолчанию (`BB_LTO=OFF` — выключить).
-- **PGO** (оптимизация по профилю): если есть `pgo\bbport.profdata`, сборка использует его сама.
+- **PGO** (оптимизация по профилю): если есть `pgo\wbp.profdata`, сборка использует его сама.
   Профиль один для всех игроков — в нём записано, какой код горячий, а не какое железо.
   - Записать новый: `set BB_PGO=generate`, `build.bat`, поиграть 10–15 минут как обычно (бег, бой,
     разные места). Инструментированная игра пишет `pgo\default_*.profraw` каждые 30 с.
-  - Затем обычный `build.bat`: он сливает записи в `pgo\bbport.profdata` (сырые уходят в
-    `pgo\recorded\`) и собирает с профилем. `bbport.profdata` стоит закоммитить.
+  - Затем обычный `build.bat`: он сливает записи в `pgo\wbp.profdata` (сырые уходят в
+    `pgo\recorded\`) и собирает с профилем. `wbp.profdata` стоит закоммитить.
   - Перезаписывать стоит раз в несколько месяцев или после больших изменений графики; код,
     изменённый после записи, просто собирается без профиля. `BB_PGO=off` — сборка без него.
 
 ## Пакет
 
-`dist\bbport-windows\`:
+`dist\WBP\`:
 
 ```
 Bloodborne.exe          лаунчер и подготовка игры
 Play Bloodborne.exe     игра без окна лаунчера
-bin\                    bb-probe.exe, bb-gpu-capabilities.exe, DLL MSYS2 (SDL3, FFmpeg, …), DLSS
+bin\                    wbp-game.exe, bb-gpu-capabilities.exe, DLL MSYS2 (SDL3, FFmpeg, …), DLSS
 launcher\lang\          переводы
 patches\                патчи сообщества
 fsr4_shaders\           модель FSR 4 (если была при сборке)
 licenses\               лицензии сторонних компонентов
 ```
 
-При обновлении `dist\` сохраняются `user\`, `mods\`, `bbport.ini`, `mods.json`, `patches.json`.
+При обновлении `dist\` сохраняются `user\`, `mods\`, `wbp.ini`, `mods.json`, `patches.json`.
 
 ## Переменные запуска
 
@@ -55,7 +55,7 @@ licenses\               лицензии сторонних компоненто
 
 | Переменная | Что |
 |---|---|
-| `BB_GAME_DIR`, `BB_USER_DIR`, `BB_DATA_DIR`, `BB_CONFIG` | папки игры, пользователя, данных, путь к `bbport.ini` |
+| `BB_GAME_DIR`, `BB_USER_DIR`, `BB_DATA_DIR`, `BB_CONFIG` | папки игры, пользователя, данных, путь к `wbp.ini` |
 | `BB_FPS` | `uncap`, `60`, `90`, `30` |
 | `BB_FPS_LIMIT` | лимит FPS в режиме без ограничения (0 — без лимита) |
 | `BB_PRESENT_MODE`, `BB_FULLSCREEN`, `BB_HDR` | показ кадров, полный экран, HDR |

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include "bbport_overlay.h"
+#include "wbp_overlay.h"
 
 #include <atomic>
 #include <cfloat>
@@ -10,7 +10,7 @@
 #include <mutex>
 
 #include <SDL3/SDL.h>
-#include "bbport_settings.h"
+#include "wbp_settings.h"
 #include "imgui.h"
 #include "imgui_impl_vulkan.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -41,7 +41,7 @@ asm(".section .rodata\n"
 extern "C" const unsigned char bb_font_ttf[];
 extern "C" const unsigned char bb_font_ttf_end[];
 
-extern "C" void runtime_restart(void); // bb-probe (probe.c)
+extern "C" void runtime_restart(void); // wbp-game (probe.c)
 
 namespace BbOverlay {
 
@@ -394,7 +394,7 @@ void Menu() {
         keep_open = false;
     }
     ImGui::SameLine();
-    ImGui::TextDisabled("Настройки сохраняются в bbport.ini");
+    ImGui::TextDisabled("Настройки сохраняются в wbp.ini");
     ImGui::End();
     if (!keep_open) {
         SetOpen(false);
@@ -461,7 +461,7 @@ void Init(const Vulkan::Instance& instance, vk::Format format, u32 image_count) 
     io.IniFilename = nullptr; // window positions are not kept
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
     io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
-    io.BackendPlatformName = "bbport";
+    io.BackendPlatformName = "wbp";
 
     ImGui::StyleColorsDark();
     ImGuiStyle& style = ImGui::GetStyle();

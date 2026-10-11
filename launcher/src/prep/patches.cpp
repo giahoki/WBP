@@ -25,7 +25,7 @@ constexpr const char* RESOLUTION_TEMPLATE = "Resolution Patch 1280x720 (16:9)";
 const std::map<std::string, std::vector<std::string>> FPS_PRESETS = {
     {"30", {}}, {"60", {"60 FPS++"}}, {"90", {"90 FPS++"}}, {"uncap", {"Uncap FPS++"}}};
 
-// bbport.ini key -> (patch when the key is 0, patch when it is 1).
+// wbp.ini key -> (patch when the key is 0, patch when it is 1).
 struct Effect {
     const char *key, *off, *on;
 };
@@ -238,7 +238,7 @@ void ValidateRequirements(const std::vector<std::string>& names, const fs::path&
         if (!missing.empty())
             throw Failure("Debug menu needs non-empty font files in " + PathText(font) + ": " + missing +
                           ". Install the fonts from https://www.nexusmods.com/bloodborne/mods/253 first; "
-                          "or disable debug_menu in bbport.ini");
+                          "or disable debug_menu in wbp.ini");
     }
 }
 

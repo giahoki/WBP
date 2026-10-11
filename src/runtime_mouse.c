@@ -12,7 +12,7 @@
  * [1E0h]) so the game does not pull the view back. The window thread adds mouse counts with
  * atomics; mouse_camera takes them with an exchange.
  *
- * The speed is the mouse_sensitivity setting (in-game menu, bbport.ini; BB_MOUSE_SENS), read on
+ * The speed is the mouse_sensitivity setting (in-game menu, wbp.ini; BB_MOUSE_SENS), read on
  * every update. BB_MOUSE=0 turns it off, BB_MOUSE_INVERT_Y=1 inverts the vertical axis,
  * BB_MOUSE_AXES="a,b,c,d" sets the raw matrix (radians per count at sensitivity 1):
  * angle140 += dx*a + dy*b, angle144 += dx*c + dy*d. BB_MOUSE_DEBUG=1 logs the angles. */

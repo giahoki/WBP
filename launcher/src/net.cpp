@@ -54,7 +54,7 @@ bool Start(Open& o, const std::string& method, const std::string& url, const std
         o.error = "bad address " + url;
         return false;
     }
-    o.session.h = WinHttpOpen(L"bbport-launcher", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME,
+    o.session.h = WinHttpOpen(L"wbp-launcher", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME,
                               WINHTTP_NO_PROXY_BYPASS, 0);
     if (!o.session) {
         o.error = LastError("WinHttpOpen");

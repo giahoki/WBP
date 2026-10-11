@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The game image for bb-probe: a plaintext PS4 SELF (eboot.bin) linked with the game's own
+// The game image for wbp-game: a plaintext PS4 SELF (eboot.bin) linked with the game's own
 // libc.prx and libSceFios2.prx into out/boot-linked.bin (format BBPROBE5, read by src/probe.c).
 #pragma once
 #include <map>

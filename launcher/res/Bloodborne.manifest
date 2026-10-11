@@ -2,7 +2,7 @@
 <!-- Bloodborne.exe (the launcher): UTF-8 narrow file APIs, long paths, per-monitor DPI and the
      current common controls for its dialogs. -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity type="win32" name="bbport.Bloodborne" version="1.0.0.0"/>
+  <assemblyIdentity type="win32" name="wbp.Bloodborne" version="1.2.0.0"/>
   <dependency>
     <dependentAssembly>
       <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0"

@@ -6,7 +6,7 @@
 # (saves, shader caches, logs, settings, the player's mods and their choices)
 /user/
 /mods/
-bbport.ini
+wbp.ini
 mods.json
 patches.json
 *.log
@@ -28,7 +28,7 @@ eboot.bin
 
 # ---- Profile-guided optimization: only the merged profile is kept --------------------------------
 /pgo/*
-!/pgo/bbport.profdata
+!/pgo/wbp.profdata
 *.profraw
 
 # ---- Captures, dumps, recordings ------------------------------------------------------------------

@@ -2,7 +2,7 @@
 rem Builds the Windows package in one step: the game runtime and the launcher (build.sh), then
 rem the package and the zip (packaging\windows\package.sh).
 rem
-rem   build.bat            everything: dist\bbport-windows\ and dist\bbport-windows.zip
+rem   build.bat            everything: dist\WBP\ and dist\WBP.zip
 rem   build.bat launcher   only the launcher (Bloodborne.exe) and the package, after one full build
 rem
 rem Needs MSYS2 with the CLANG64 packages of packaging\windows\README.md (MSYS2_ROOT if it is
@@ -31,7 +31,7 @@ echo === Packaging ^(packaging/windows/package.sh^) ===
 "%BASH%" -lc "bash packaging/windows/package.sh" || goto :fail
 
 echo.
-echo Done: dist\bbport-windows\Bloodborne.exe and dist\bbport-windows.zip
+echo Done: dist\WBP\Bloodborne.exe and dist\WBP.zip
 exit /b 0
 
 :fail

@@ -1,4 +1,4 @@
-// bbport: see log.h.
+// wbp: see log.h.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

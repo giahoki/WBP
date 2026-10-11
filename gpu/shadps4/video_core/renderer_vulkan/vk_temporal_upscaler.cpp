@@ -14,8 +14,8 @@
 
 #include <vk_mem_alloc.h>
 
-#include "bbport_settings.h"
-#include "bbport_toggles.h"
+#include "wbp_settings.h"
+#include "wbp_toggles.h"
 #include "ffx_vk_portable.h"
 #include "video_core/host_shaders/upscale_merge_comp.h"
 #include "video_core/host_shaders/upscale_reactive_comp.h"
@@ -50,7 +50,7 @@ FfxVkPortableImage Describe(vk::Image image, vk::Format format, u32 width, u32 h
     return out;
 }
 
-/// bbport: BB_DUMP_TRIGGER=<file> BB_DUMP_DIR=<dir> (default out/dump): creating the file dumps
+/// wbp: BB_DUMP_TRIGGER=<file> BB_DUMP_DIR=<dir> (default out/dump): creating the file dumps
 /// the upscaler's images of the next BB_DUMP_FRAMES (8) frames as raw files
 /// <dir>/fNNN_<name>_<w>x<h>_<format>.raw, for checking temporal stability offline.
 /// Returns the frame number to dump, or -1.
@@ -168,7 +168,7 @@ TemporalUpscaler::TemporalUpscaler(const Instance& instance_, Scheduler& schedul
     {
         const Dlss* dlss = Dlss::Get();
         static std::string problem;
-        problem = !dlss ? "bbport_dlss.dll and nvngx_dlss.dll are not installed"
+        problem = !dlss ? "wbp_dlss.dll and nvngx_dlss.dll are not installed"
                         : dlss->Problem();
         BbSettings::ConfigureDlssSupport(dlss && dlss->Available(), problem.c_str());
     }
@@ -266,7 +266,7 @@ bool TemporalUpscaler::RasterScaling() const {
 }
 
 bool TemporalUpscaler::OnFrameStart() {
-    // bbport: BB_PRESET_FILE=<file> holding a preset number, read about once a second: switches
+    // wbp: BB_PRESET_FILE=<file> holding a preset number, read about once a second: switches
     // the preset like the menu does (scripted tests of live preset changes).
     static const char* preset_file = std::getenv("BB_PRESET_FILE");
     if (preset_file && ++preset_file_frames % 64 == 0) {
@@ -1614,7 +1614,7 @@ void TemporalUpscaler::RunScaled() {
     }
     last_frame = now;
 
-    // bbport: FSR 4 writes its HDR-format output, copied into the output-size UI image.
+    // wbp: FSR 4 writes its HDR-format output, copied into the output-size UI image.
     if (UseFsr4() || UseDlss() || BbSettings::Get().upscaler == BbSettings::UpscalerTaa) {
         barrier(vk::Image(output_image), vk::ImageAspectFlagBits::eColor,
                 vk::ImageLayout::eUndefined, all, vk::AccessFlagBits2::eNone,

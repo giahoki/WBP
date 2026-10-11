@@ -11,16 +11,16 @@
 #endif
 #include <functional>
 
-#include "bbport_copy.h"
+#include "wbp_copy.h"
 #include "video_core/renderer_vulkan/vk_gpu_profiler.h"
-#include "bbport_toggles.h"
+#include "wbp_toggles.h"
 #include "common/assert.h"
 #include "common/debug.h"
 #include "common/thread.h"
 #include "imgui/renderer/texture_manager.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
-#include "bbport_threads.h"
+#include "wbp_threads.h"
 
 namespace Vulkan {
 
@@ -28,7 +28,7 @@ std::mutex Scheduler::submit_mutex;
 
 Scheduler::Scheduler(const Instance& instance, bool threaded_recording)
     : instance{instance}, work_semaphore{instance}, command_pool{instance, &work_semaphore} {
-    // bbport: BB_VK_RECORD_THREAD=0 records on the calling thread.
+    // wbp: BB_VK_RECORD_THREAD=0 records on the calling thread.
     const char* env = std::getenv("BB_VK_RECORD_THREAD");
     if (threaded_recording && !(env && env[0] == '0')) {
         record_chunk = AcquireChunk();
@@ -354,7 +354,7 @@ void Scheduler::PopPendingOperations() {
         return; // every draw comes here
     }
     std::unique_lock lk(pending_ops_mutex);
-    // bbport: this runs on every draw and dispatch. Querying the timeline semaphore is an
+    // wbp: this runs on every draw and dispatch. Querying the timeline semaphore is an
     // ioctl, so it is skipped when nothing waits and done once per 32 calls (~0.3 ms; reading
     // the clock per draw instead was itself a hot spot).
     if (pending_ops.empty()) {

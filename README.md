@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🩸 Bloodborne PC
+# 🩸 WBP — Windows Bloodborne Port
 
 **Bloodborne on Windows 10 and 11 — made to be played with a mouse and keyboard.**
 
-[![Download](https://img.shields.io/github/v/release/giahoki/WBP?label=download&style=for-the-badge&color=8a1015)](https://github.com/giahoki/WBP/releases/latest)
+[![Download](https://img.shields.io/github/v/release/giahoki/WBP?label=download&style=for-the-badge&color=2f7383)](https://github.com/giahoki/WBP/releases/latest)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-2b2b2b?style=for-the-badge&logo=windows)](#-requirements)
 [![Game](https://img.shields.io/badge/CUSA03173-v1.09-c8a96a?style=for-the-badge)](#-how-to-play)
 [![License](https://img.shields.io/badge/license-GPL--2.0+-555?style=for-the-badge)](LICENSE)
@@ -154,8 +154,8 @@ Install [MSYS2](https://www.msys2.org) with the CLANG64 packages from
 build.bat
 ```
 
-The game, the launcher and the package (`dist\bbport-windows\` + zip) are built in one go, with
-ThinLTO and the profile in `pgo\bbport.profdata`. How everything works inside: **[docs/](docs/README.md)**
+The game, the launcher and the package (`dist\WBP\` + zip) are built in one go, with
+ThinLTO and the profile in `pgo\wbp.profdata`. How everything works inside: **[docs/](docs/README.md)**
 (loader, graphics, launcher, input, mods, build).
 
 | Part | Language | Where |

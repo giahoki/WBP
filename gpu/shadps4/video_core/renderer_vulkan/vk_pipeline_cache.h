@@ -53,8 +53,8 @@ struct Program {
 
     Shader::Info info;
     ModuleList modules{};
-    size_t last_used = 0; ///< bbport: permutation of the previous lookup, compared first
-    /// bbport: `info` as translated, for draw-preparation workers (they must not read `info`,
+    size_t last_used = 0; ///< wbp: permutation of the previous lookup, compared first
+    /// wbp: `info` as translated, for draw-preparation workers (they must not read `info`,
     /// whose user data the GPU thread rewrites every draw). Guarded by programs_mutex.
     std::unique_ptr<Shader::Info> info_template;
 
@@ -86,7 +86,7 @@ union Regs;
 
 namespace Vulkan {
 
-/// bbport: state of one graphics/compute pipeline selection. The GPU thread owns one
+/// wbp: state of one graphics/compute pipeline selection. The GPU thread owns one
 /// (PipelineCache::sel); draw-preparation workers use their own with their register copies.
 struct PipelineSelection {
     const AmdGpu::Regs* regs{};
@@ -100,7 +100,7 @@ struct PipelineSelection {
     struct PrepWorker* worker{}; ///< set: read-only selection for a draw-preparation worker
 };
 
-/// bbport: a draw-preparation worker's own program state (see vk_draw_prep.h).
+/// wbp: a draw-preparation worker's own program state (see vk_draw_prep.h).
 struct PrepWorker {
     struct Stage {
         const Program* program;
@@ -133,15 +133,15 @@ public:
     const GraphicsPipeline* GetGraphicsPipeline(const DrawIndirectParams params = {},
                                                 const PreparedDraw* prepared = nullptr);
 
-    /// bbport: worker side of draw preparation: selects the pipeline key for `sel.regs` without
+    /// wbp: worker side of draw preparation: selects the pipeline key for `sel.regs` without
     /// creating anything. False when a program or permutation does not exist yet.
     bool PrepareGraphicsPipeline(PipelineSelection& sel);
 
-    /// bbport: GPU-thread side: the pipeline for a prepared draw after checking that registers
+    /// wbp: GPU-thread side: the pipeline for a prepared draw after checking that registers
     /// and flattened user data match; null to take the regular path.
     const GraphicsPipeline* TryPreparedPipeline(const PreparedDraw& prepared);
 
-    /// bbport: the prepared draw the last GetGraphicsPipeline used, or null (regular path).
+    /// wbp: the prepared draw the last GetGraphicsPipeline used, or null (regular path).
     [[nodiscard]] const PreparedDraw* UsedPrepared() const noexcept {
         return used_prepared;
     }
@@ -188,7 +188,7 @@ private:
     AmdGpu::Liverpool* liverpool;
     DescriptorHeap desc_heap;
     vk::UniquePipelineCache pipeline_cache;
-    /// bbport: the driver cache on disk (user/cache/vulkan_pipelines.bin) and its writer.
+    /// wbp: the driver cache on disk (user/cache/vulkan_pipelines.bin) and its writer.
     std::filesystem::path vk_cache_path;
     std::jthread cache_saver;
     void SaveVulkanCache();
@@ -196,7 +196,7 @@ private:
     Shader::Profile profile{};
     Shader::Pools pools;
     tsl::robin_map<size_t, std::unique_ptr<Program>> program_cache;
-    /// bbport: exclusive for program/permutation insertions, shared for worker lookups.
+    /// wbp: exclusive for program/permutation insertions, shared for worker lookups.
     std::shared_mutex programs_mutex;
     u64 prepared_hits = 0, prepared_misses = 0;
     const PreparedDraw* used_prepared = nullptr;

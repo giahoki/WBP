@@ -197,7 +197,18 @@ fs::path ConfigDir() {
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &roaming))) base = roaming;
     CoTaskMemFree(roaming);
     if (base.empty()) base = PortDir();
-    return base / L"bbport-launcher";
+    return base / L"wbp-launcher";
+}
+
+void MigrateOldNames() {
+    std::error_code ec;
+    const fs::path ini = DataDir() / L"wbp.ini", old_ini = DataDir() / L"bbport.ini";
+    if (!fs::exists(ini, ec) && fs::is_regular_file(old_ini, ec)) {
+        fs::rename(old_ini, ini, ec);
+        if (!ec) Say("Settings: bbport.ini renamed to wbp.ini");
+    }
+    const fs::path config = ConfigDir(), old_config = config.parent_path() / L"bbport-launcher";
+    if (!fs::exists(config, ec) && fs::is_directory(old_config, ec)) fs::rename(old_config, config, ec);
 }
 
 std::string Env(const char* name, std::string_view fallback) {

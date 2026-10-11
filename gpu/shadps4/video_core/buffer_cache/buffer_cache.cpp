@@ -9,8 +9,8 @@
 #include <bit>
 #include <cstdlib>
 #include <magic_enum/magic_enum.hpp>
-#include "bbport_copy.h"
-#include "bbport_toggles.h"
+#include "wbp_copy.h"
+#include "wbp_toggles.h"
 #include "common/alignment.h"
 #include "core/memory.h"
 #include "video_core/amdgpu/liverpool.h"
@@ -110,7 +110,7 @@ void BufferCache::InvalidateMemory(VAddr device_addr, u64 size, bool assume_lock
     });
 }
 
-// bbport: the game fills its per-frame buffers (constants, skinning output) sequentially and
+// wbp: the game fills its per-frame buffers (constants, skinning output) sequentially and
 // every 4 KiB page cost a protection fault (~110k/s in Hunter's Nightmare, a fifth of each
 // render worker's time in the kernel). A fault unprotects the aligned window around it instead;
 // pages marked CPU-modified without being written only cost an upload when bound.
@@ -213,7 +213,7 @@ void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 siz
 }
 
 namespace {
-// bbport: BB_BUFFER_STATS=1 — how buffer bindings reach the GPU, by guest region (256 MiB),
+// wbp: BB_BUFFER_STATS=1 — how buffer bindings reach the GPU, by guest region (256 MiB),
 // printed every 5 s: small read-only copies into the stream buffer, arena bindings, and the
 // bytes those re-upload after CPU writes. Input for engine-level short paths.
 struct BufferStats {
@@ -308,7 +308,7 @@ std::pair<const Buffer*, u64> BufferCache::ObtainBuffer(VAddr device_addr, u32 s
             ++region.stream_count;
             region.stream_bytes += size;
         }
-        // bbport: the guest data is copied on a copy thread, started now; submission and
+        // wbp: the guest data is copied on a copy thread, started now; submission and
         // guest-visible fences wait for it (Scheduler::WaitHostCopies).
         if (!stream_buffer.mapped_data.empty() &&
             !BbToggle::Disabled(BbToggle::DeferredStreamCopies)) {
@@ -355,7 +355,7 @@ std::pair<const Buffer*, u64> BufferCache::ObtainBufferForImage(VAddr device_add
     const auto staging = staging_pool.Request(size, VideoCore::MemoryType::HostUncached,
                                               instance.StorageMinAlignment());
     if (!BbToggle::Disabled(BbToggle::DeferredUploads)) {
-        // bbport: texture data is copied on the copy threads (streaming: 100+ MB per frame);
+        // wbp: texture data is copied on the copy threads (streaming: 100+ MB per frame);
         // the upload reads the staging only after submission, which waits for the copies.
         constexpr u64 Chunk = 1_MB;
         for (u64 offset = 0; offset < staging.size; offset += Chunk) {
@@ -541,7 +541,7 @@ const Buffer* BufferCache::UploadCopies(const Buffer* arena, std::span<vk::Buffe
     }
     BbStats::buffer_upload_bytes.fetch_add(total_size_bytes, std::memory_order_relaxed);
     const auto staging = staging_pool.Request(total_size_bytes, MemoryType::HostUncached);
-    // bbport: the guest memory is copied into staging on the copy threads, started now in
+    // wbp: the guest memory is copied into staging on the copy threads, started now in
     // groups of about 1 MiB; submission and guest-visible fences wait for them
     // (Scheduler::WaitHostCopies).
     if (!BbToggle::Disabled(BbToggle::DeferredUploads) && total_size_bytes < 1_MB) {
@@ -622,7 +622,7 @@ bool BufferCache::SynchronizeMemoryFromImage(const Buffer* arena, VAddr device_a
             LOG_WARNING(Render_Vulkan, "Unhandled metadata type {}", magic_enum::enum_name(*type));
         }
     }
-    // bbport: most texel buffers alias no image; remember misses until images change.
+    // wbp: most texel buffers alias no image; remember misses until images change.
     const u64 generation = texture_cache.RegistryGeneration();
     auto& miss = image_miss_cache[((device_addr >> 6) ^ size * 0x9E3779B1u) % image_miss_cache.size()];
     if (miss.address == device_addr && miss.size == size && miss.generation == generation &&
@@ -634,7 +634,7 @@ bool BufferCache::SynchronizeMemoryFromImage(const Buffer* arena, VAddr device_a
         miss = {device_addr, size, generation};
         return false;
     }
-    // bbport: the lookups above only read what the texture binding helper leaves alone; the
+    // wbp: the lookups above only read what the texture binding helper leaves alone; the
     // copy below changes image state, so the helper finishes first.
     runtime.BeforeImageAccess();
     Image& image = texture_cache.GetImage(image_id);

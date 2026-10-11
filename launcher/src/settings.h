@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Settings: bbport.ini (the game reads it, the in-game menu edits it) and the launcher's own
+// Settings: wbp.ini (the game reads it, the in-game menu edits it) and the launcher's own
 // settings.json (passed to the game as environment variables).
 #pragma once
 #include <map>
@@ -10,7 +10,7 @@
 
 #include "util.h"
 
-constexpr const char* VERSION = "1.0";  // GitHub release tags are v<VERSION>
+constexpr const char* VERSION = "1.2";  // GitHub release tag: the same digits (1.2 or v1.2)
 constexpr const char* PATCH_VERSION = "01.09";
 constexpr const char* COMMUNITY_SERVER = "https://thehuntersdream.com";
 constexpr const char* RELEASES_API = "https://api.github.com/repos/giahoki/WBP/releases/latest";
@@ -54,7 +54,7 @@ struct KeyLayout {
 extern const std::vector<KeyLayout> KEY_LAYOUTS;
 std::map<std::string, std::vector<std::string>> LoadBindings(const std::map<std::string, std::string>& ini);
 
-// bbport.ini: values over the defaults; saving rewrites the known keys in place and keeps
+// wbp.ini: values over the defaults; saving rewrites the known keys in place and keeps
 // comments and unknown keys.
 struct Ini {
     std::map<std::string, std::string> values;
@@ -68,7 +68,7 @@ struct Ini {
     bool On(const std::string& key) const { return Get(key) == "1"; }
 };
 
-// settings.json in %APPDATA%/bbport-launcher.
+// settings.json in %APPDATA%/wbp-launcher.
 struct App {
     nlohmann::json values;
     static const nlohmann::json& Defaults();
