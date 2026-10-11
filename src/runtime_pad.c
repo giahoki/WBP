@@ -107,6 +107,7 @@ static const Action actions[]={
     {"move_forward",0,AX_LY,-1,0,"W"}, {"move_back",0,AX_LY,1,0,"S"},
     {"move_left",0,AX_LX,-1,0,"A"}, {"move_right",0,AX_LX,1,0,"D"},
     {"dodge_run",BTN_CIRCLE,-1,0,0,"Space"},
+    {"run",BTN_CIRCLE,-1,0,0,""}, /* hold: run; dodge_run while it is held: jump (the PC layout) */
     {"jump",BTN_L3,-1,0,0,"F"}, /* L3: free camera, enemy control; jumping is dodge_run again while running */
     {"interact",BTN_CROSS,-1,0,0,"E|Return"},
     {"back",BTN_CIRCLE,-1,0,0,"Backspace"},
@@ -131,6 +132,69 @@ static const Action actions[]={
 #define MAX_BINDINGS 4
 static Input bound[ACTION_COUNT][MAX_BINDINGS];
 static uint8_t bound_count[ACTION_COUNT];
+/* input_mode=native (the default; bbport.ini, BB_INPUT_MODE): the actions that share a pad
+ * button with another one press only their own game actions through runtime_input.c instead
+ * of the button (dodge_run, run and back on circle). emulation: every action presses its button.
+ * Native extras: menu (Escape) is also menu back, which closes shops and other menus that
+ * ignore Options. The game has one character input on circle (virtual 298+299 together): a tap
+ * rolls, holding runs, a tap while running jumps. With run bound (the PC layout) the keys
+ * become those timings: run holds it; dodge_run is always a tap of TAP_US (a roll, also when
+ * held); dodge_run while running lets go for GAP_US, taps, lets go again and goes on running.
+ * Run counts only while the character moves (circle let go standing is a backstep), and holds
+ * circle for at least RUN_MIN_US, so a short one is no roll. */
+#define TAP_US 100000u
+#define RUN_MIN_US 500000u
+#define GAP_US 60000u
+static int native_mode;
+static volatile uint32_t native_down;
+static int native_action(size_t a) {
+    if (!strcmp(actions[a].name,"dodge_run")) return NATIVE_DODGE;
+    if (!strcmp(actions[a].name,"run")) return NATIVE_RUN;
+    if (!strcmp(actions[a].name,"back")) return NATIVE_BACK;
+    return -1;
+}
+/* The character's circle and menu back from the split actions held (bits NATIVE_*). */
+static uint32_t native_split(uint32_t held, int menu, int run_bound, int moving) {
+    static int dodge_was, run_was;
+    static uint64_t start, run_start; /* last dodge_run and run presses */
+    static int jump;                  /* that dodge_run press came while running */
+    const int dodge=(held>>NATIVE_DODGE)&1u, run_key=((held>>NATIVE_RUN)&1u) && moving;
+    const uint64_t now=now_us();
+    if (run_key && !run_was) run_start=now;
+    run_was=run_key;
+    const int run=run_key || (run_start && now-run_start<RUN_MIN_US);
+    if (dodge && !dodge_was) { start=now; jump=run; }
+    dodge_was=dodge;
+    int circle;
+    if (!run_bound) circle=dodge || run;
+    else if (start && jump && now-start<GAP_US+TAP_US+GAP_US)
+        circle=now-start>=GAP_US && now-start<GAP_US+TAP_US;
+    else circle=run || (dodge && now-start<TAP_US);
+    uint32_t out=0;
+    if (circle) out|=1u<<NATIVE_DODGE;
+    if (((held>>NATIVE_BACK)&1u) || menu) out|=1u<<NATIVE_BACK;
+    return out;
+}
+static int run_bound(void) {
+    for (size_t a=0;a<ACTION_COUNT;++a) if (native_action(a)==NATIVE_RUN) return bound_count[a]>0;
+    return 0;
+}
+uint32_t runtime_pad_native_down(void) { return __atomic_load_n(&native_down,__ATOMIC_RELAXED); }
+/* The number row 1..9, 0, - as bits 0..10 (BB_INPUT_PROBE, runtime_input.c). */
+uint32_t runtime_pad_probe_keys(void) {
+    const bool *k=SDL_WasInit(SDL_INIT_VIDEO) ? SDL_GetKeyboardState(NULL) : NULL;
+    static const SDL_Scancode row[11]={SDL_SCANCODE_1,SDL_SCANCODE_2,SDL_SCANCODE_3,SDL_SCANCODE_4,SDL_SCANCODE_5,
+        SDL_SCANCODE_6,SDL_SCANCODE_7,SDL_SCANCODE_8,SDL_SCANCODE_9,SDL_SCANCODE_0,SDL_SCANCODE_MINUS};
+    uint32_t bits=0;
+    for (int i=0;k && i<11;++i) if (k[row[i]]) bits|=1u<<i;
+    return bits;
+}
+static void set_mode(int native) {
+    const char *env=getenv("BB_INPUT_MODE");
+    if (env && *env) native=!strcmp(env,"native");
+    if (native && !runtime_input_active()) { puts("Runtime: native input is unavailable; emulating the pad"); native=0; }
+    native_mode=native;
+}
 
 static int parse_input(const char *text, Input *in) {
     in->mod=0;
@@ -180,6 +244,7 @@ static void load_bindings(void) {
         path=getenv("BB_CONFIG");
         if (!path || !*path) path="bbport.ini";
         for (size_t a=0;a<ACTION_COUNT;++a) bind_list(a,actions[a].defaults);
+        set_mode(1);
     }
     struct stat st;
     if (stat(path,&st)!=0) return;
@@ -189,8 +254,10 @@ static void load_bindings(void) {
     FILE *f=fopen(path,"r");
     if (!f) return;
     for (size_t a=0;a<ACTION_COUNT;++a) bind_list(a,actions[a].defaults);
+    int mode=1;
     char line[512];
     while (fgets(line,sizeof(line),f)) {
+        if (!strncmp(line,"input_mode=",11)) mode=strncmp(line+11,"emulation",9)!=0;
         if (strncmp(line,"key_",4)) continue;
         char *eq=strchr(line,'=');
         if (!eq) continue;
@@ -198,7 +265,8 @@ static void load_bindings(void) {
         for (size_t a=0;a<ACTION_COUNT;++a) if (!strcmp(line+4,actions[a].name)) bind_list(a,eq+1);
     }
     fclose(f);
-    printf("Runtime: key bindings from %s\n",path);
+    set_mode(mode);
+    printf("Runtime: key bindings from %s (%s)\n",path,native_mode ? "native" : "pad emulation");
 }
 static int input_down(const Input *in, const bool *k, uint32_t mouse, int wheel) {
     switch (in->type) {
@@ -272,6 +340,8 @@ static void sample_bindings(PadData *d, const bool *k) {
             if (in->mod && (mods&in->mod)==in->mod && input_down(in,k,mouse,wheel) && ntaken<16) taken[ntaken++]=*in;
         }
     int neg[4]={0}, pos[4]={0};
+    uint32_t split=0;
+    int menu=0;
     for (size_t a=0;a<ACTION_COUNT;++a) {
         int active=0;
         for (int b=0;b<bound_count[a] && !active;++b) {
@@ -286,8 +356,13 @@ static void sample_bindings(PadData *d, const bool *k) {
         const Action *act=&actions[a];
         if (act->axis>=0) { if (act->dir<0) neg[act->axis]=1; else pos[act->axis]=1; }
         else if (act->touch) touch_click(d,act->touch==2);
+        else if (native_mode && native_action(a)>=0) split|=1u<<native_action(a);
         else d->buttons|=act->button;
+        if (act->button==BTN_OPTIONS) menu=1;
     }
+    const int moving=neg[0] || pos[0] || neg[1] || pos[1] || d->left_x<88 || d->left_x>168 ||
+                     d->left_y<88 || d->left_y>168;
+    __atomic_store_n(&native_down,native_mode ? native_split(split,menu,run_bound(),moving) : 0,__ATOMIC_RELAXED);
     float lx, ly;
     if (keyboard_walk(neg,pos,&lx,&ly)) { d->left_x=stick_byte(lx); d->left_y=stick_byte(ly); }
     uint8_t *sticks[2][2]={{&d->left_x,&d->left_y},{&d->right_x,&d->right_y}};

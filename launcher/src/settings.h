@@ -34,7 +34,7 @@ struct Choice {
     const char* value;
     Text title;
 };
-extern const std::vector<Choice> UPSCALERS, PRESETS, OUTPUTS, LIVE, LODS, FPS_MODES, PRESENT_MODES, LANGUAGES,
+extern const std::vector<Choice> UPSCALERS, PRESETS, OUTPUTS, LIVE, INPUT_MODES, LODS, FPS_MODES, PRESENT_MODES, LANGUAGES,
     DRAW_PIPE, READBACKS, FRAME_CAPS, FRAMES_AHEAD;
 
 struct KeyAction {
@@ -47,6 +47,11 @@ struct KeyGroup {
     std::vector<KeyAction> actions;
 };
 extern const std::vector<KeyGroup> KEY_BINDINGS;
+struct KeyLayout {
+    Text title;
+    std::vector<std::pair<const char*, const char*>> bindings;  // action -> bindings, over the defaults
+};
+extern const std::vector<KeyLayout> KEY_LAYOUTS;
 std::map<std::string, std::vector<std::string>> LoadBindings(const std::map<std::string, std::string>& ini);
 
 // bbport.ini: values over the defaults; saving rewrites the known keys in place and keeps

@@ -161,9 +161,15 @@ int RunGame(std::vector<std::wstring> args) {
         // Keyboard and mouse button prompts drawn from the bindings (bbport.ini key_icons=0: off).
         const auto settings = prep::ReadSettings(config);
         std::vector<fs::path> layers;
+        UnsetEnv("BB_DODGE_ICON");  // a restart from the game inherits the last run's value
         if (!settings.count("key_icons") || settings.at("key_icons") == "1") {
             try {
-                if (auto icons = prep::BuildKeyIcons(game, out, LoadBindings(settings))) layers.push_back(*icons);
+                const bool native = !settings.count("input_mode") || settings.at("input_mode") != "emulation";
+                const auto bindings = LoadBindings(settings);
+                if (auto icons = prep::BuildKeyIcons(game, out, bindings, native)) {
+                    layers.push_back(*icons);
+                    if (prep::DodgeIconSplit(bindings, native)) SetEnv("BB_DODGE_ICON", prep::DODGE_ICON);
+                }
             } catch (const std::exception& error) {
                 SayError(std::string("Key icons: ") + error.what());
             }

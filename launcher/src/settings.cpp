@@ -55,6 +55,9 @@ const std::vector<Choice> OUTPUTS = {{"1280x720", {"1280 × 720 (Steam Deck)"}},
 const std::vector<Choice> LIVE = {{"auto", {"Auto (by graphics card)", "Авто (по видеокарте)"}},
                                   {"0", {"Off (faster)", "Выключена (быстрее)"}},
                                   {"1", {"On (change without restarting)", "Включена (без перезапуска)"}}};
+const std::vector<Choice> INPUT_MODES = {
+    {"native", {"Native", "Нативный"}},
+    {"emulation", {"Gamepad emulation", "Эмуляция геймпада"}}};
 const std::vector<Choice> LODS = {{"0", {"As in the game", "Как в игре"}}, {"-2", {"Highest (−2)", "Максимальная (−2)"}},
                                   {"1", {"Lower (1)", "Ниже (1)"}}, {"2", {"Lowest (2)", "Минимальная (2)"}}};
 const std::vector<Choice> FPS_MODES = {{"uncap", {"Unlocked (frame-time patch)", "Без ограничения (патч)"}},
@@ -80,6 +83,14 @@ const std::vector<Choice> FRAME_CAPS = {
 const std::vector<Choice> FRAMES_AHEAD = {{"", {"1 (default)", "1 (по умолчанию)"}}, {"2", {"2"}},
                                           {"0", {"Unbounded", "Без ограничения"}}};
 
+// Layouts the Controls page offers: the bindings that differ from the defaults (Souls).
+const std::vector<KeyLayout> KEY_LAYOUTS = {
+    {{"Souls (as on a gamepad)", "Souls (как на геймпаде)"}, {}},
+    {{"PC: run on Shift", "PC: бег на Shift"},
+     {{"run", "Left Shift"}, {"dodge_run", "Space"}, {"strong_attack", "Ctrl+Mouse1|Mouse5"},
+      {"transform", "Ctrl+Mouse2|Mouse4"}}},
+};
+
 // src/runtime_pad.c holds the same defaults (actions[]): keep them in step.
 const std::vector<KeyGroup> KEY_BINDINGS = {
     {{"Movement", "Движение"},
@@ -89,6 +100,8 @@ const std::vector<KeyGroup> KEY_BINDINGS = {
       {"move_right", {"Right", "Вправо"}, "D"},
       {"dodge_run", {"Dodge / run (hold), jump (press again while running)",
                      "Уклонение / бег (удерживать), прыжок (нажать ещё раз на бегу)"}, "Space"},
+      {"run", {"Run (hold); dodge while running jumps. Native input", "Бег (удерживать); уклонение на бегу — прыжок. Нативный ввод"},
+       ""},
       {"jump", {"L3 (free camera, enemy control)", "L3 (свободная камера, управление врагом)"}, "F"}}},
     {{"Combat", "Бой"},
      {{"attack", {"Attack", "Атака"}, "Mouse1"},
@@ -139,7 +152,8 @@ const std::map<std::string, std::string>& Ini::Defaults() {
         std::map<std::string, std::string> d = {
             {"upscaler", "fsr3"}, {"preset", "1"}, {"sharpen", "1"}, {"sharpness", "0.50"},
             {"object_motion", "1"}, {"show_fps", "1"}, {"output_res", "1920x1080"}, {"model_lod", "0"},
-            {"live_resolution", "auto"}, {"mouse_sensitivity", "1.00"}, {"key_icons", "1"}};
+            {"live_resolution", "auto"}, {"mouse_sensitivity", "1.00"}, {"key_icons", "1"},
+            {"input_mode", "native"}};
         for (auto* list : {&EFFECTS, &EXTRAS, &CHEATS, &TWEAKS})
             for (const Flag& f : *list) d[f.key] = f.on ? "1" : "0";
         for (const KeyGroup& g : KEY_BINDINGS)

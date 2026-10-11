@@ -110,6 +110,52 @@ locomotion, not input smoothing. Stops when a key changes direction come from th
 stop/turn animations reacting to a stick that jumps; `keyboard_walk` in `src/runtime_pad.c` turns
 the keyboard direction smoothly instead (docs/INPUT.md).
 
+### Native input (`src/runtime_input.c`)
+
+The pad device (vtable `0x56B84B0`, constructors `sub_2A90D10`/`sub_2A90F80` on the base
+`sub_2A8D2B0`) owns five converter passes built in the base constructor. Digital buttons go
+through the pass at `0x2A98CD0` (vtable `0x56B8DF0`, slot `+0x40` → jump at `0x2A98EF0`):
+
+| Address | What |
+|---|---|
+| `0x56B8598` | pad vtable slot `0xE8`: `sub_2A91800` GetButton(dev, physical 0..15) = `[dev+150h] & mask[physical]`, masks at `0x4C6DC20` |
+| `0x2A98E40`–`0x2A98E90` | for each converter (iterator in `r14`): `call rbx` (GetButton) at `0x2A98E63`, then the converter's virtual input (`vtable+30h`) as a bit in `[[dev+130h]]` |
+| `0x2FA4840` | `sub_2FA4840`: the converter at an iterator |
+| `0x2A8D790` | the device's virtual bit read (`[dev+130h]` bit set); `0x2A8D780` the analog one (`[dev+100h]`) |
+| `0x138E940`, `0x2FA3F30` | key assign (`FD4BaseKeyAssign.cpp`): adds a converter virtual ← physical |
+
+Physical index → PS4 bit: 0 left, 1 down, 2 right, 3 up, 4 options, 5 R3, 6 L3, 7 square,
+8 cross, 9 circle, 10 triangle, 11 R1, 12 L1, 13 R2, 14 L2, 15 touchpad. Virtual inputs per
+physical button in 1.09 (logged with `BB_INPUT_DEBUG=1`):
+
+| Physical | Virtual inputs |
+|---|---|
+| 0 left | 213 214 217 221 228 232 272 310 313 341 |
+| 1 down | 204 206 210 218 222 227 231 271 312 342 |
+| 2 right | 212 215 216 220 229 233 273 309 314 340 |
+| 3 up | 205 207 211 219 223 226 230 270 296 311 339 |
+| 4 options | 265 277 302 |
+| 5 R3 | 201 208 251 257 275 279 343 |
+| 6 L3 | 200 209 250 256 274 276 278 289 304 344 |
+| 7 square | 225 236 240 244 295 317 325 338 |
+| 8 cross | 194 196 198 237 241 245 266 267 303 318 323 334 335 |
+| 9 circle | **menus:** 195 197 199 235 239 243 · **character:** 298 299 316 324 336 |
+| 10 triangle | 234 238 242 305 306 307 315 326 337 |
+| 11 R1 | 202 247 253 259 268 280 285 293 300 320 329 383 387 |
+| 12 L1 | 203 246 252 258 269 282 287 291 294 297 319 327 385 389 |
+| 13 R2 | 281 286 292 301 322 330 384 388 |
+| 14 L2 | 224 283 284 288 290 308 321 328 390 394 |
+| 15 touchpad | 262 331 386 391 392 |
+
+The circle split (menus / character) was confirmed in game on 2026-10-11. The character's
+circle needs 298 and 299 together (either alone, or 316/324/336, does nothing); roll, run and
+jump are one input told apart by timing. The other buttons' groups are not named yet.
+
+Tutorial icon tokens: `sub_1EE7B50` expands `<?OKIcon?>` / `<?CancelIcon?>` to
+`<img src='%s' vspace='-8'>` with `L"KG_Cancel"` / `L"KG_OK"` (swapped when `sub_23B8730`
+says so); `0x1EE7C70` is `lea rbx,[L"KG_OK"]`. By analogy 194–245 look like menu inputs (with repeat pulses on the
+d-pad) and 266+ like the character's.
+
 ## Other addresses in the port
 
 | What | Where |

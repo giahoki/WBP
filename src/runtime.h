@@ -80,6 +80,13 @@ uintptr_t runtime_pad_resolve(const char *name);
 void runtime_pad_report(void);
 /* Native mouse camera (runtime_mouse.c): hooks the camera update in the loaded image. */
 void runtime_mouse_install(unsigned char *image);
+/* Native input (runtime_input.c): hooks the pad device's button reads in the loaded image.
+ * Split actions share a pad button but press only their own virtual inputs in native mode. */
+enum { NATIVE_DODGE, NATIVE_BACK, NATIVE_RUN, NATIVE_ACTION_COUNT };
+void runtime_input_install(unsigned char *image);
+int runtime_input_active(void);
+uint32_t runtime_pad_native_down(void); /* bit per split action held, native mode only */
+uint32_t runtime_pad_probe_keys(void);  /* number row held, for BB_INPUT_PROBE */
 int runtime_mouse_active(void);
 void runtime_mouse_motion(float x, float y);
 void runtime_mouse_reset(void);

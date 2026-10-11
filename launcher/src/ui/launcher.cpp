@@ -998,6 +998,11 @@ float Launcher::ControlsPage(float x, float y, float w) {
         f.y += row.h;
     }
     f.Section(T("Keyboard and mouse", "Клавиатура и мышь"));
+    IniChoice(f, "input_mode", T("Keyboard input", "Ввод с клавиатуры"), INPUT_MODES,
+              T("Native: keys press the game's own actions, so dodge and menu back are separate keys although the "
+                "gamepad has one button (circle) for both. Emulation: every key presses its gamepad button, as before.",
+                "Нативный: клавиши нажимают действия самой игры, поэтому перекат и «назад» в меню — разные клавиши, хотя "
+                "у геймпада это одна кнопка (кружок). Эмуляция: каждая клавиша нажимает свою кнопку геймпада, как раньше."));
     IniFlag(f, "key_icons", T("Keyboard and mouse keys in the game's button prompts", "Клавиши клавиатуры и мыши в подсказках игры"),
             T("Instead of the gamepad buttons (cross, circle, …) the game shows your bindings. Drawn when the game starts; "
               "turn it off if you play with a gamepad.",
@@ -1052,11 +1057,17 @@ float Launcher::ControlsPage(float x, float y, float w) {
         }
     }
     f.y += 12;
-    if (f.Buttons("keys", {T("Reset to defaults", "Сбросить по умолчанию")}) == 0) {
+    std::vector<std::string> layouts;
+    for (const KeyLayout& l : KEY_LAYOUTS) layouts.push_back(l.title());
+    const int layout = f.Buttons("keys", layouts);
+    if (layout >= 0 && layout < int(KEY_LAYOUTS.size())) {
         for (const KeyGroup& group : KEY_BINDINGS)
             for (const KeyAction& a : group.actions) ini_.values[std::string("key_") + a.action] = a.defaults;
+        for (auto& [action, bindings] : KEY_LAYOUTS[size_t(layout)].bindings)
+            ini_.values[std::string("key_") + action] = bindings;
+        if (layout > 0) ini_.values["input_mode"] = "native";  // only native input splits run from dodge
         Changed();
-        Notify(T("Controls reset to the defaults.", "Управление сброшено по умолчанию."));
+        Notify(T("Layout set: ", "Раскладка: ") + layouts[size_t(layout)]);
     }
     f.Note(T("Left Alt, F10, Insert and F9 are taken by the port and cannot be bound. A connected gamepad keeps working next "
              "to the keyboard.",

@@ -23,12 +23,12 @@ using Microsoft::WRL::ComPtr;
 namespace prep {
 namespace {
 
-constexpr int VERSION = 4;  // bump when the output changes: invalidates the cache
+constexpr int VERSION = 7;  // bump when the output changes: invalidates the cache
 
 // Which action's first binding each icon shows (several: the first one that is bound).
 const std::vector<std::pair<const char*, std::vector<const char*>>> ICONS = {
     {"KG_Cancel", {"interact"}},  // the cross button (confirm in this version)
-    {"KG_OK", {"back", "dodge_run"}},  // the circle button
+    {"KG_OK", {"dodge_run", "back"}},  // the circle button: dodge and back are one button, prompts mostly mean dodge
     {"KG_R_L", {"use_item"}}, {"KG_R_U", {"blood_vial"}},
     {"KG_L1", {"transform"}}, {"KG_L2", {"gun"}}, {"KG_L3", {"jump"}},
     {"KG_R1", {"attack"}}, {"KG_R2", {"strong_attack"}}, {"KG_R3", {"lock_on"}},
@@ -47,7 +47,7 @@ struct Hud {
     int x0, y0, x1, y1, ix, iy, size;
     std::vector<const char*> actions;
 };
-const Hud HUD[] = {{660, 120, 688, 152, 661, 123, 26, {"back", "dodge_run"}},
+const Hud HUD[] = {{660, 120, 688, 152, 661, 123, 26, {"dodge_run", "back"}},
                    {692, 120, 724, 152, 694, 123, 26, {"interact"}},
                    {724, 120, 756, 152, 726, 123, 26, {"jump"}}};
 
@@ -433,7 +433,7 @@ std::string Short(const std::string& binding) {
     return name.substr(0, 3);
 }
 
-std::map<std::string, Image> IconsFor(Painter& painter, const Bindings& bindings) {
+std::map<std::string, Image> IconsFor(Painter& painter, const Bindings& bindings, bool native) {
     std::map<std::string, std::string> first;
     for (auto& [action, values] : bindings)
         if (!values.empty()) first[action] = values[0];
@@ -461,6 +461,10 @@ std::map<std::string, Image> IconsFor(Painter& painter, const Bindings& bindings
         if (first.count(a)) move.push_back(Short(first[a]));
     if (move.size() == 4) icons["KG_LS"] = painter.TextIcon({move[0], move[1] + move[2] + move[3]});
     icons["KG_RS"] = painter.MouseIcon();  // the camera is the mouse
+    if (DodgeIconSplit(bindings, native)) {
+        icons["KG_OK"] = painter.Binding(first["back"]);
+        icons[DODGE_ICON] = painter.Binding(first["dodge_run"]);
+    }
     return icons;
 }
 
@@ -492,12 +496,19 @@ int PatchHud(Painter& painter, Bytes& payload, const std::map<std::string, Textu
 
 }  // namespace
 
-std::optional<fs::path> BuildKeyIcons(const fs::path& game, const fs::path& out, const Bindings& bindings) {
+bool DodgeIconSplit(const Bindings& bindings, bool native) {
+    auto dodge = bindings.find("dodge_run"), back = bindings.find("back");
+    return native && dodge != bindings.end() && back != bindings.end() && !dodge->second.empty() &&
+           !back->second.empty() && dodge->second[0] != back->second[0];
+}
+
+std::optional<fs::path> BuildKeyIcons(const fs::path& game, const fs::path& out, const Bindings& bindings,
+                                      bool native) {
     const fs::path archive = fs::path(L"dvdroot_ps4") / L"menu" / L"common.tpf.dcx";
     const fs::path source = game / archive;
     std::error_code ec;
     if (!fs::is_regular_file(source, ec)) return std::nullopt;
-    std::string key = "v" + std::to_string(VERSION);
+    std::string key = "v" + std::to_string(VERSION) + (native ? "n" : "e");
     for (auto& [action, values] : bindings) {
         key += "|" + action + "=";
         for (auto& v : values) key += v + ",";
@@ -517,7 +528,7 @@ std::optional<fs::path> BuildKeyIcons(const fs::path& game, const fs::path& out,
     int replaced = 0;
     {
         Painter painter;
-        for (auto& [name, image] : IconsFor(painter, bindings)) {
+        for (auto& [name, image] : IconsFor(painter, bindings, native)) {
             auto it = textures.find(name);
             if (it == textures.end()) continue;
             const Texture& t = it->second;
