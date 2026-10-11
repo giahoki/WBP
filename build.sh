@@ -2,8 +2,41 @@
 set -euo pipefail
 cd -- "$(dirname -- "$0")"
 mkdir -p out
+
+# Third-party libraries (FSR-Vulkan, Dear ImGui, magic_enum, miniz, xbyak, LibAtrac9) are part of
+# the repository: a plain clone builds without downloading anything.
+third_party_check() {
+    local missing=()
+    for file in gpu/third_party/fsr-vulkan/CMakeLists.txt gpu/third_party/imgui/imgui.h \
+                gpu/third_party/xbyak/xbyak/xbyak.h gpu/third_party/miniz/miniz.h \
+                gpu/third_party/magic_enum/include/magic_enum/magic_enum.hpp third_party/LibAtrac9/C/src/decoder.h; do
+        [[ -f $file ]] || missing+=("$file")
+    done
+    if (( ${#missing[@]} )); then
+        echo "Missing third-party sources: ${missing[*]}" >&2
+        echo "They belong to the repository: restore them with git checkout -- gpu/third_party third_party" >&2
+        exit 1
+    fi
+}
+# This port's changes to FSR-Vulkan (gpu/patches/fsr-vulkan). The copy in the repository has them
+# already; they are applied (from the repository root) only to a fresh upstream copy.
+apply_fsr_patches() {
+    local patch
+    for patch in gpu/patches/fsr-vulkan/*.patch; do
+        if git apply --ignore-whitespace --directory=gpu/third_party/fsr-vulkan --reverse --check "$patch" 2>/dev/null; then
+            continue  # already applied
+        elif git apply --ignore-whitespace --directory=gpu/third_party/fsr-vulkan --check "$patch" 2>/dev/null; then
+            git apply --ignore-whitespace --directory=gpu/third_party/fsr-vulkan "$patch"
+            echo "Applied $patch"
+        else
+            echo "Note: $patch neither applies nor reverts cleanly; using FSR-Vulkan as it is" >&2
+        fi
+    done
+}
+
 # Windows: MSYS2 CLANG64 (packages in packaging/windows/README.md). The GPU library is static
-# there and CMake links bb-probe.exe as well; no PGO (GCC-only flags), ThinLTO on (BB_LTO=OFF: off).
+# there and CMake links bb-probe.exe as well; ThinLTO on (BB_LTO=OFF: off), clang PGO from
+# pgo/bbport.profdata when it is there.
 case $(uname -s) in
 MINGW*|MSYS*)
     # shellcheck source=msys2-env.sh
@@ -26,15 +59,8 @@ MINGW*|MSYS*)
     mkdir -p pgo
     # --launcher: only Bloodborne.exe (the game runtime stays as it was built).
     if [[ ${1:-} != --launcher ]]; then
-    if [[ ! -f gpu/third_party/fsr-vulkan/CMakeLists.txt || ! -f gpu/third_party/imgui/imgui.h ||
-          ! -f gpu/third_party/xbyak/xbyak/xbyak.h ]]; then
-        git submodule update --init --recursive
-    fi
-    for patch in gpu/patches/fsr-vulkan/*.patch; do
-        if ! git -C gpu/third_party/fsr-vulkan apply --reverse --check "$PWD/$patch" 2>/dev/null; then
-            git -C gpu/third_party/fsr-vulkan apply "$PWD/$patch"
-        fi
-    done
+    third_party_check
+    apply_fsr_patches
     cmake -S gpu -B out/gpu -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_PGO="$pgo" -DBB_PGO_DIR="$PWD/pgo" \
         -DBB_LTO="${BB_LTO:-ON}" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ >/dev/null
     echo "GPU library and loader: LTO ${BB_LTO:-ON}, PGO $pgo"
@@ -84,16 +110,8 @@ if [[ -z $pgo ]]; then
     if [[ -n $(find pgo -name '*.gcda' -print -quit 2>/dev/null) ]]; then pgo=use; else pgo=off; fi
 fi
 mkdir -p pgo
-# Submodules (git clone --recursive, or: git submodule update --init) and this port's changes
-# to FSR-Vulkan (gpu/patches/fsr-vulkan), applied to its working tree once.
-if [[ ! -f gpu/third_party/fsr-vulkan/CMakeLists.txt || ! -f gpu/third_party/imgui/imgui.h ]]; then
-    git submodule update --init --recursive
-fi
-for patch in gpu/patches/fsr-vulkan/*.patch; do
-    if ! git -C gpu/third_party/fsr-vulkan apply --reverse --check "$PWD/$patch" 2>/dev/null; then
-        git -C gpu/third_party/fsr-vulkan apply "$PWD/$patch"
-    fi
-done
+third_party_check
+apply_fsr_patches
 cmake -S gpu -B out/gpu -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_PGO="$pgo" \
     -DBB_LTO="${BB_LTO:-ON}" -DBB_PGO_DIR="$PWD/pgo" >/dev/null
 echo "GPU library: PGO $pgo, LTO ${BB_LTO:-ON}"

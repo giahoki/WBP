@@ -19,11 +19,12 @@ pacman -S --needed git patch \
   mingw-w64-clang-x86_64-{glfw,pugixml,libdeflate}
 ```
 
-magic_enum, miniz and xbyak (not packaged by MSYS2) are submodules under `gpu/third_party/`.
-Then, in the repository:
+FSR-Vulkan, Dear ImGui, magic_enum, miniz, xbyak and LibAtrac9 are part of the repository
+(`gpu/third_party/`, `third_party/`; FSR-Vulkan already carries the port's patches from
+`gpu/patches/fsr-vulkan`): a plain clone builds without downloading anything. Then, in the
+repository:
 
 ```bash
-git submodule update --init --recursive
 bash build.sh                      # out/bb-probe.exe, out/bb-gpu-capabilities.exe, out/Bloodborne.exe
 out/Bloodborne.exe                 # the launcher
 BB_GAME_DIR=F:/path/to/CUSA03173 out/Bloodborne.exe --run   # the game without the window
