@@ -1,0 +1,52 @@
+# ---- Build output -----------------------------------------------------------------------------
+/out/
+/dist/
+
+# ---- What the game and the launcher create next to themselves when run from the repository ----
+# (saves, shader caches, logs, settings, the player's mods and their choices)
+/user/
+/mods/
+bbport.ini
+mods.json
+patches.json
+*.log
+# Third-party patch files go into patches/ too; only the community file is part of the repository.
+/patches/*
+!/patches/Bloodborne.xml
+
+# ---- Downloaded or built assets (large, fetched by the launcher or tools/fetch_fsr4_assets.sh) ----
+/fsr4_shaders/
+/fsr4_411/
+
+# ---- Game files: never commit a dump ------------------------------------------------------------
+CUSA03173/
+CUSA03173-mods/
+*.pkg
+eboot.bin
+*.prx
+*.sprx
+
+# ---- Profile-guided optimization: only the merged profile is kept --------------------------------
+/pgo/*
+!/pgo/bbport.profdata
+*.profraw
+
+# ---- Captures, dumps, recordings ------------------------------------------------------------------
+*.mp4
+*.png
+!launcher/bloodborne.png
+*.dmp
+*.orig
+/*.spv
+
+# ---- Local tools and editors: Claude Code session files, IDA databases, IDE folders ---------------
+.claude/
+*.i64
+*.idb
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+.vscode/
+.idea/

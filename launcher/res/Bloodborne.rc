@@ -1,0 +1,4 @@
+#include <winuser.h>
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "Bloodborne.manifest"
+// The first icon is the one Explorer and the window show.
+1 ICON "../bloodborne.ico"

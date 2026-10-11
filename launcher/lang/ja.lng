@@ -1,0 +1,239 @@
+# Launcher texts, ja: English text<TAB>translation (\n is a line break).
+Play	プレイ
+Graphics	グラフィック
+Display & FPS	表示とFPS
+Game & effects	ゲームとエフェクト
+Mods & patches	MODとパッチ
+Advanced	詳細設定
+Log	ログ
+PLAY	プレイ
+Stop	停止
+native port · Windows	ネイティブ移植 · Windows
+In the game: Insert or L3+R3\nopens the port's menu.	ゲーム中：Insert または L3+R3\nで移植版メニューを開きます。
+Ready check	準備チェック
+Quick settings	クイック設定
+Frame rate	フレームレート
+Upscaler	アップスケーラー
+Preset	プリセット
+Output	出力
+Fullscreen	フルスクリーン
+CUSA03173 · game version {}	CUSA03173 · ゲームバージョン {}
+Game folder not set	ゲームフォルダー未設定
+Choose your game folder (Game & effects)	ゲームフォルダーを選択してください（ゲームとエフェクト）
+✓ Game version {}: every patch available	✓ ゲームバージョン {}：すべてのパッチを使用できます
+⚠ Game version {}: runs at 30 FPS without the community patches (they are for 1.09)	⚠ ゲームバージョン {}：コミュニティパッチなしの 30 FPS で動作します（パッチは 1.09 用）
+✗ No eboot.bin in the game folder (Game & effects)	✗ ゲームフォルダーに eboot.bin がありません（ゲームとエフェクト）
+✓ Saves found in {}	✓ セーブデータが見つかりました：{}
+• No saves yet: the game creates them in {}	• セーブデータはまだありません：ゲームが {} に作成します
+✓ Graphics card: {}	✓ グラフィックカード：{}
+• Graphics card: not checked	• グラフィックカード：未確認
+• Checking the graphics card…	• グラフィックカードを確認中…
+✗ No Vulkan 1.3 graphics card found (update the driver)	✗ Vulkan 1.3 対応のグラフィックカードが見つかりません（ドライバーを更新してください）
+✓ FSR 4 assets installed	✓ FSR 4 ファイルはインストール済み
+• FSR 4 assets missing (Graphics); FSR 3.1 is used meanwhile	• FSR 4 ファイルがありません（グラフィック）。当面は FSR 3.1 を使用します
+Choose the game folder first.	先にゲームフォルダーを選択してください。
+Preparing the game; it opens in its own window…	ゲームを準備しています。専用のウィンドウで開きます…
+The game is running.	ゲーム実行中。
+Restarting with the new settings…	新しい設定で再起動しています…
+\n— the game exited (code {}) —\n	\n— ゲームが終了しました（コード {}）—\n
+Could not start: {}	起動できませんでした：{}
+Choose the game folder with eboot.bin (CUSA03173).	eboot.bin のあるゲームフォルダーを選択してください（CUSA03173）。
+Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	bbport.ini に保存されます。ゲーム内メニュー（Insert または L3+R3）でも同じ値を変更できます。
+Upscaling	アップスケーリング
+Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	ゲーム自身のモーションベクトルを使うテンポラルアップスケーリング。FSR 4 にはファイル（下記）と INT8 対応 GPU が必要です。ない場合は自動で FSR 3.1 になります。
+Quality preset	画質プリセット
+Render scale per axis: Quality renders at 1/1.5 of the output size.	軸ごとの描画スケール：Quality は出力サイズの 1/1.5 で描画します。
+Output resolution	出力解像度
+What the upscaler produces; the HUD is drawn at this size too.	アップスケーラーが出力するサイズ。UI もこのサイズで描画されます。
+Live resolution changes	解像度のライブ変更
+Off: outputs other than 1080p are set by a patch at start (fastest; changing them in the game restarts it). On: change output and preset in the game without a restart, at a cost.	オフ：1080p 以外の出力は起動時にパッチで設定（最速。ゲーム内で変更すると再起動）。オン：再起動なしでゲーム内から出力とプリセットを変更できますが、負荷が増えます。
+Sharpening (RCAS)	シャープ化 (RCAS)
+Sharpness	シャープの強さ
+Object motion vectors	オブジェクトのモーションベクトル
+Less ghosting on characters, cloth and weapons; costs about 10% FPS.	キャラクター・衣服・武器の残像を減らします。FPS が約 10% 下がります。
+FSR 4 assets	FSR 4 ファイル
+Download FSR 4 assets	FSR 4 ファイルをダウンロード
+From FireBurn/Q2RTX on GitHub (built from AMD's MIT-licensed FidelityFX source), about 30 MB, into the fsr4_shaders folder of the port.	GitHub の FireBurn/Q2RTX から（AMD の MIT ライセンスの FidelityFX ソースからビルド）、約 30 MB、移植版の fsr4_shaders フォルダーへ。
+Installed: {} files in {}.	インストール済み：{} ファイル（{}）。
+{} of {} files missing in {}.	{} 中 {} ファイルが {} にありません。
+Download failed: {}	ダウンロードに失敗しました：{}
+Detail	ディテール
+Model detail (LOD)	モデルの詳細度 (LOD)
+A game patch (game version 1.09).	ゲームパッチ（バージョン 1.09）。
+Show the FPS counter	FPS カウンターを表示
+FSR 4 (best quality)	FSR 4（最高画質）
+FSR 4.1.1 (needs fsr4_411 assets)	FSR 4.1.1（fsr4_411 ファイルが必要）
+FSR 3.1 (every GPU)	FSR 3.1（すべての GPU）
+TAA (native resolution anti-aliasing)	TAA（ネイティブ解像度のアンチエイリアス）
+Off	オフ
+Auto (by graphics card)	自動（グラフィックカードに応じて）
+Off (faster)	オフ（高速）
+On (change without restarting)	オン（再起動なしで変更）
+As in the game	ゲームのまま
+Highest (−2)	最高 (−2)
+Lower (1)	低め (1)
+Lowest (2)	最低 (2)
+Applied when the game starts.	ゲーム起動時に適用されます。
+Community patches for game version 1.09. Unlocked makes the game use the real frame time. Other game versions always run at 30 FPS (the patches would corrupt them).	ゲームバージョン 1.09 用のコミュニティパッチ。無制限ではゲームが実際のフレーム時間を使います。他のバージョンは常に 30 FPS で動作します（パッチで壊れるため）。
+Frame cap (unlocked mode)	フレームレート上限（無制限モード）
+Above about 120 FPS the game's movement timing breaks (running and rolling get slower, physics and animations can glitch): higher caps are at your own risk.	約 120 FPS を超えるとゲームの移動タイミングが崩れます（走りや回避が遅くなり、物理やアニメーションが乱れることがあります）。高い上限は自己責任で。
+Frames ahead of the GPU	GPU より先行するフレーム数
+1 keeps frame pacing even; more can raise FPS when the graphics card is the limit.	1 はフレームペースを安定させます。GPU がボトルネックの場合、増やすと FPS が上がることがあります。
+Window	ウィンドウ
+Presentation	表示方式
+Allow HDR output	HDR 出力を許可
+When HDR is on in Windows and the display supports it.	Windows で HDR がオンで、ディスプレイが対応している場合。
+Unlocked (frame-time patch)	無制限（フレーム時間パッチ）
+30 FPS (as on PS4)	30 FPS（PS4 と同じ）
+Auto: display refresh, max 120 (recommended)	自動：ディスプレイのリフレッシュレート、最大 120（推奨）
+No limit	上限なし
+Mailbox (low latency, no tearing)	Mailbox（低遅延・ティアリングなし）
+Immediate (tearing)	Immediate（ティアリングあり）
+1 (default)	1（既定）
+Unbounded	無制限
+Your game is version {}: these options are patches for 1.09 and are not applied; the game runs at 30 FPS. Update the dump to 1.09 to use them.	お使いのゲームはバージョン {} です。これらは 1.09 用のパッチのため適用されず、ゲームは 30 FPS で動作します。使うにはダンプを 1.09 に更新してください。
+Your game dump, saves and the game patches.	ゲームのダンプ、セーブデータ、ゲームパッチ。
+Game	ゲーム
+Game folder	ゲームフォルダー
+Choose the folder with eboot.bin	eboot.bin のあるフォルダーを選択
+Your own dump of CUSA03173 (eboot.bin, sce_module, sce_sys, dvdroot_ps4); version 1.09 for the community patches.	ご自身の CUSA03173 のダンプ（eboot.bin、sce_module、sce_sys、dvdroot_ps4）。コミュニティパッチには 1.09 が必要です。
+Saves folder	セーブフォルダー
+Choose the saves folder	セーブフォルダーを選択
+Empty: {} (shader caches are kept there too).	空欄：{}（シェーダーキャッシュもここに保存されます）。
+Game language	ゲームの言語
+Player name	プレイヤー名
+Where the game shows the PSN name; empty: the default.	ゲームが PSN 名を表示する箇所。空欄：既定。
+Effects	エフェクト
+Chromatic aberration	色収差
+Depth of field	被写界深度
+Motion blur	モーションブラー
+Ambient occlusion (SSAO)	アンビエントオクルージョン (SSAO)
+The game's own anti-aliasing	ゲーム本来のアンチエイリアス
+Shadows of dynamic lights	動的ライトの影
+Screen-space reflections (not in the original)	スクリーンスペース反射（オリジナルにはなし）
+Extras	その他
+Skip the intro logos and movie	オープニングのロゴとムービーをスキップ
+Free camera (hold Cross + L3; keyboard Space + Z)	フリーカメラ（Cross + L3 長押し、キーボードは Space + Z）
+Game debug menu (left touchpad / Tab; needs the debug fonts)	ゲームのデバッグメニュー（左タッチパッド / Tab。デバッグ用フォントが必要）
+Effects and extras are game patches for version 1.09, applied at start.	エフェクトとその他はバージョン 1.09 用のゲームパッチで、起動時に適用されます。
+English	英語
+Russian	ロシア語
+Japanese	日本語
+French	フランス語
+Spanish	スペイン語
+German	ドイツ語
+Italian	イタリア語
+The game files are never changed: mods are layered over them at start.	ゲームファイルは変更されません。MOD は起動時に重ねて読み込まれます。
+Mods	MOD
+Load mods	MOD を読み込む
+Loose-file mods, each in its own folder (with dvdroot_ps4, or chr\\, parts\\ … directly).	ファイル形式の MOD。それぞれ専用フォルダーに（dvdroot_ps4 付き、または chr\\、parts\\ … を直接）。
+Mods folder	MOD フォルダー
+Choose the mods folder	MOD フォルダーを選択
+Empty: {}	空欄：{}
+Third-party patches	サードパーティ製パッチ
+Patches folder	パッチフォルダー
+Choose the patches folder	パッチフォルダーを選択
+shadPS4/GoldHEN XML patch files for version 1.09. Empty: {}	1.09 用の shadPS4/GoldHEN XML パッチファイル。空欄：{}
+Refresh	更新
+No mods in {} yet.	{} にはまだ MOD がありません。
+Lower in the list loads later and wins conflicts.	リストの下にあるものほど後に読み込まれ、競合時に優先されます。
+No patch files for version 1.09 yet.	1.09 用のパッチファイルはまだありません。
+Launcher options, performance switches and diagnostics.	ランチャーの設定、パフォーマンス、診断。
+Launcher	ランチャー
+Launcher language	ランチャーの言語
+Applies when the launcher opens again.	ランチャーを再度開いたときに適用されます。
+Close the launcher when the game starts	ゲーム起動時にランチャーを閉じる
+Desktop shortcut	デスクトップのショートカット
+Port folder	移植版フォルダー
+Shortcut created on the desktop.	デスクトップにショートカットを作成しました。
+Performance	パフォーマンス
+Two-stage GPU pipeline	2 段階 GPU パイプライン
+20–30% faster; switch it off if the game is unstable.	20〜30% 高速。ゲームが不安定ならオフにしてください。
+Auto (8+ threads)	自動（8 スレッド以上）
+On	オン
+Off (more stable)	オフ（安定）
+GPU readbacks	GPU リードバック
+How exactly data the GPU writes is copied back for the game.	GPU が書き込んだデータをどれだけ正確にゲームへ戻すか。
+Relaxed (default)	Relaxed（既定）
+Diagnostics	診断
+Frame statistics in the log (every 5 s)	ログにフレーム統計（5 秒ごと）
+GPU time per pass in the log	ログにパスごとの GPU 時間
+Vulkan validation layers (needs the Vulkan SDK; much slower)	Vulkan 検証レイヤー（Vulkan SDK が必要。大幅に遅くなります）
+Extra variables	追加の変数
+NAME=value pairs separated by spaces (README lists them).	スペース区切りの 名前=値 のペア（一覧は README）。
+System	システム
+Copy	コピー
+Clear	クリア
+Browse…	参照…
+Open	開く
+Cheats	チート
+Game patches for version 1.09, applied at start. Leave them off for a normal play-through.	バージョン 1.09 用のゲームパッチで、起動時に適用されます。通常のプレイではオフのままにしてください。
+Gameplay tweaks	ゲームプレイの調整
+Never die (health stops at 1 HP)	死なない（HP は 1 未満にならない）
+Enemies do not see you (unless attacked)	敵に見つからない（攻撃しない限り）
+Enemies do not hear you	敵に聞こえない
+Rally never fades	リゲインが減らない
+Control the targeted enemy (R3; L3 to go back; not with the free camera)	ロックオンした敵を操作（R3、L3 で戻る、フリーカメラとは併用不可）
+No Rally (hits do not give health back)	リゲインなし（攻撃で HP が戻らない）
+Camera further from the character	カメラをキャラクターから遠くする
+No camera auto-rotation while moving	移動中のカメラ自動回転なし
+Run with less stick tilt (about 70%)	スティックの傾きが少なくても走る（約 70%）
+Dark Souls-style ragdoll physics (corpses fly further)	ダークソウル風のラグドール物理（死体が遠くまで飛ぶ）
+Clear shader cache	シェーダーキャッシュを消去
+If the game only shows a black screen, this usually helps.	ゲームが黒い画面のままのときは、たいていこれで直ります。
+Shader cache cleared. The next start stutters for a few minutes while it is rebuilt.	シェーダーキャッシュを消去しました。次回起動時は再構築のため数分間カクつきます。
+Version {} is available.	バージョン {} が利用できます。
+Update	更新
+What's new	新機能
+Install version {} now? The launcher closes, installs it and opens again. Saves and settings are kept.	バージョン {} を今すぐインストールしますか？ランチャーが閉じてインストールし、再び開きます。セーブデータと設定はそのままです。
+Downloading version {}… {}%	バージョン {} をダウンロード中… {}%
+Update failed: {}	更新に失敗しました：{}
+Close the game before updating.	更新する前にゲームを終了してください。
+Check for updates when the launcher opens	ランチャー起動時に更新を確認
+Check for updates	更新を確認
+You have the latest version ({}).	最新バージョンです（{}）。
+Could not check for updates: {}	更新を確認できませんでした：{}
+Could not install the update. Download it from the releases page.	更新をインストールできませんでした。リリースページからダウンロードしてください。
+Online co-op	オンライン協力プレイ
+Messages, bloodstains and ghosts come from The Hunter's Dream; bells and summons go through a shadNet server.	メッセージ、血痕、幻影は The Hunter's Dream から届きます。鐘と召喚は shadNet サーバーを経由します。
+Play online	オンラインでプレイ
+Off: the game stays offline, as before.	オフ：これまでどおりオフラインで起動します。
+Game server (messages, bloodstains, ghosts)	ゲームサーバー（メッセージ、血痕、幻影）
+Game server	ゲームサーバー
+The Hunter's Dream by default. Only the name is needed; the game picks the ports.	既定は The Hunter's Dream。名前だけで十分で、ポートはゲームが選びます。
+Co-op server (bells and summons)	協力プレイサーバー（鐘と召喚）
+Server address	サーバーアドレス
+srv.shadps4.net:31313 is the public shadPS4 server. For a private server, enter host:port from the person who runs it.	srv.shadps4.net:31313 は shadPS4 の公開サーバーです。プライベートサーバーの場合は、運営者から聞いた host:port を入力してください。
+WebAPI address	WebAPI アドレス
+Of the shadNet server, not the game server. Leave empty: the server address with port 31315 is used.	ゲームサーバーではなく shadNet サーバーのものです。空欄にすると、サーバーアドレスとポート 31315 が使われます。
+Account	アカウント
+Online ID (NPID)	オンライン ID (NPID)
+Your shadNet account name, not your email. Register one at shadnet.shadps4.net, or ask the owner of a private server.	shadNet のアカウント名です（メールアドレスではありません）。shadnet.shadps4.net で登録するか、プライベートサーバーの運営者に頼んでください。
+Password	パスワード
+Saved on this PC with the other launcher settings.	ランチャーの他の設定と一緒にこの PC に保存されます。
+Connection	接続
+UPnP (open a port on the router automatically)	UPnP（ルーターのポートを自動で開く）
+Turn it off on Tailscale or another VPN.	Tailscale などの VPN を使うときはオフにしてください。
+Everyone in a session needs the same game version (1.09) and the same server. Cheats change the game for the other players too: turn them off when you play together.	セッションの全員が同じゲームバージョン (1.09) と同じサーバーを使う必要があります。チートは他のプレイヤーのゲームにも影響するので、一緒に遊ぶときはオフにしてください。
+Online	オンライン
+Offline	オフライン
+Bloodborne is in your Steam library. It starts with the settings saved in this launcher.	Bloodborne を Steam ライブラリに追加しました。このランチャーに保存された設定で起動します。
+An online account is filled in, but "Play online" is off.\n\nYes: play online.   No: play offline.	オンラインアカウントが入力されていますが、「オンラインでプレイ」がオフです。\n\nはい：オンラインでプレイ。   いいえ：オフラインでプレイ。
+The Online ID is the account name (NPID) you registered on the server, not your email address.	オンライン ID はサーバーに登録したアカウント名 (NPID) で、メールアドレスではありません。
+Steam was not found on this PC (or nobody has signed in to it yet).	この PC に Steam が見つかりません（またはまだ誰もサインインしていません）。
+Game server {0}: reachable	ゲームサーバー {0}：接続可能
+Server {0}: reachable	サーバー {0}：接続可能
+Checking…	確認中…
+Test connection	接続テスト
+Steam has to close while the game is added; it starts again afterwards. Close Steam now?	ゲームを追加する間は Steam を閉じる必要があり、その後また起動します。今すぐ Steam を閉じますか？
+Steam did not close. Close it yourself and try again.	Steam が閉じませんでした。手動で閉じてからもう一度お試しください。
+Game server {0}: not reachable ({1})	ゲームサーバー {0}：接続できません ({1})
+Server {0}: not reachable ({1})	サーバー {0}：接続できません ({1})
+WebAPI {0}: reachable	WebAPI {0}：接続可能
+WebAPI {0}: answered, but it is not a shadNet server	WebAPI {0}：応答はありますが shadNet サーバーではありません
+WebAPI {0}: not reachable ({1})	WebAPI {0}：接続できません ({1})
+by giahoki	制作：giahoki
+Add to Steam	Steam に追加
+The WebAPI box holds the game server address; it is ignored.	WebAPI 欄にゲームサーバーのアドレスが入っているため、無視されます。
+"Play online" is off: the game starts offline.	「オンラインでプレイ」がオフのため、オフラインで起動します。
+Could not add the game to Steam: {}	ゲームを Steam に追加できませんでした: {}

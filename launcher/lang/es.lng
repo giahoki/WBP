@@ -1,0 +1,239 @@
+# Launcher texts, es: English text<TAB>translation (\n is a line break).
+Play	Jugar
+Graphics	Gráficos
+Display & FPS	Pantalla y FPS
+Game & effects	Juego y efectos
+Mods & patches	Mods y parches
+Advanced	Avanzado
+Log	Registro
+PLAY	JUGAR
+Stop	Detener
+native port · Windows	port nativo · Windows
+In the game: Insert or L3+R3\nopens the port's menu.	En el juego: Insert o L3+R3\nabre el menú del port.
+Ready check	Comprobación
+Quick settings	Ajustes rápidos
+Frame rate	Velocidad de fotogramas
+Upscaler	Escalador
+Preset	Preajuste
+Output	Salida
+Fullscreen	Pantalla completa
+CUSA03173 · game version {}	CUSA03173 · versión del juego {}
+Game folder not set	Carpeta del juego sin elegir
+Choose your game folder (Game & effects)	Elige la carpeta del juego (Juego y efectos)
+✓ Game version {}: every patch available	✓ Versión del juego {}: todos los parches disponibles
+⚠ Game version {}: runs at 30 FPS without the community patches (they are for 1.09)	⚠ Versión del juego {}: funciona a 30 FPS sin los parches de la comunidad (son para la 1.09)
+✗ No eboot.bin in the game folder (Game & effects)	✗ No hay eboot.bin en la carpeta del juego (Juego y efectos)
+✓ Saves found in {}	✓ Partidas guardadas en {}
+• No saves yet: the game creates them in {}	• Aún no hay partidas: el juego las creará en {}
+✓ Graphics card: {}	✓ Tarjeta gráfica: {}
+• Graphics card: not checked	• Tarjeta gráfica: sin comprobar
+• Checking the graphics card…	• Comprobando la tarjeta gráfica…
+✗ No Vulkan 1.3 graphics card found (update the driver)	✗ No se encontró una tarjeta con Vulkan 1.3 (actualiza el controlador)
+✓ FSR 4 assets installed	✓ Archivos de FSR 4 instalados
+• FSR 4 assets missing (Graphics); FSR 3.1 is used meanwhile	• Faltan los archivos de FSR 4 (Gráficos); mientras tanto se usa FSR 3.1
+Choose the game folder first.	Primero elige la carpeta del juego.
+Preparing the game; it opens in its own window…	Preparando el juego; se abrirá en su propia ventana…
+The game is running.	El juego está en marcha.
+Restarting with the new settings…	Reiniciando con los nuevos ajustes…
+\n— the game exited (code {}) —\n	\n— el juego se cerró (código {}) —\n
+Could not start: {}	No se pudo iniciar: {}
+Choose the game folder with eboot.bin (CUSA03173).	Elige la carpeta del juego con eboot.bin (CUSA03173).
+Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	Se guarda en bbport.ini; el menú del juego (Insert o L3+R3) cambia los mismos valores.
+Upscaling	Escalado
+Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	Escalado temporal con los vectores de movimiento del propio juego. FSR 4 necesita sus archivos (abajo) y una GPU con INT8; si no, el juego vuelve solo a FSR 3.1.
+Quality preset	Preajuste de calidad
+Render scale per axis: Quality renders at 1/1.5 of the output size.	Escala de render por eje: Quality renderiza a 1/1,5 del tamaño de salida.
+Output resolution	Resolución de salida
+What the upscaler produces; the HUD is drawn at this size too.	Lo que produce el escalador; la interfaz también se dibuja a este tamaño.
+Live resolution changes	Cambio de resolución en vivo
+Off: outputs other than 1080p are set by a patch at start (fastest; changing them in the game restarts it). On: change output and preset in the game without a restart, at a cost.	Desactivado: las salidas distintas de 1080p se fijan con un parche al iniciar (más rápido; cambiarlas en el juego lo reinicia). Activado: cambia salida y preajuste sin reiniciar, con un coste.
+Sharpening (RCAS)	Nitidez (RCAS)
+Sharpness	Intensidad de nitidez
+Object motion vectors	Vectores de movimiento de objetos
+Less ghosting on characters, cloth and weapons; costs about 10% FPS.	Menos estelas en personajes, ropa y armas; cuesta alrededor de un 10% de FPS.
+FSR 4 assets	Archivos de FSR 4
+Download FSR 4 assets	Descargar archivos de FSR 4
+From FireBurn/Q2RTX on GitHub (built from AMD's MIT-licensed FidelityFX source), about 30 MB, into the fsr4_shaders folder of the port.	Desde FireBurn/Q2RTX en GitHub (compilados del código FidelityFX de AMD con licencia MIT), unos 30 MB, en la carpeta fsr4_shaders del port.
+Installed: {} files in {}.	Instalados: {} archivos en {}.
+{} of {} files missing in {}.	Faltan {} de {} archivos en {}.
+Download failed: {}	La descarga falló: {}
+Detail	Detalle
+Model detail (LOD)	Detalle de modelos (LOD)
+A game patch (game version 1.09).	Un parche del juego (versión 1.09).
+Show the FPS counter	Mostrar el contador de FPS
+FSR 4 (best quality)	FSR 4 (mejor calidad)
+FSR 4.1.1 (needs fsr4_411 assets)	FSR 4.1.1 (necesita archivos fsr4_411)
+FSR 3.1 (every GPU)	FSR 3.1 (cualquier GPU)
+TAA (native resolution anti-aliasing)	TAA (antialiasing a resolución nativa)
+Off	Desactivado
+Auto (by graphics card)	Automático (según la tarjeta)
+Off (faster)	Desactivado (más rápido)
+On (change without restarting)	Activado (cambiar sin reiniciar)
+As in the game	Como en el juego
+Highest (−2)	Máximo (−2)
+Lower (1)	Menor (1)
+Lowest (2)	Mínimo (2)
+Applied when the game starts.	Se aplica al iniciar el juego.
+Community patches for game version 1.09. Unlocked makes the game use the real frame time. Other game versions always run at 30 FPS (the patches would corrupt them).	Parches de la comunidad para la versión 1.09. Sin límite hace que el juego use el tiempo real de cada fotograma. Otras versiones siempre van a 30 FPS (los parches las dañarían).
+Frame cap (unlocked mode)	Límite de FPS (modo sin límite)
+Above about 120 FPS the game's movement timing breaks (running and rolling get slower, physics and animations can glitch): higher caps are at your own risk.	Por encima de unos 120 FPS se rompe el ritmo de movimiento del juego (correr y rodar se vuelven lentos, la física y animaciones pueden fallar): límites mayores bajo tu responsabilidad.
+Frames ahead of the GPU	Fotogramas por delante de la GPU
+1 keeps frame pacing even; more can raise FPS when the graphics card is the limit.	1 mantiene un ritmo de fotogramas uniforme; más puede subir los FPS si la tarjeta es el límite.
+Window	Ventana
+Presentation	Presentación
+Allow HDR output	Permitir salida HDR
+When HDR is on in Windows and the display supports it.	Cuando HDR está activado en Windows y la pantalla lo admite.
+Unlocked (frame-time patch)	Sin límite (parche de tiempo de fotograma)
+30 FPS (as on PS4)	30 FPS (como en PS4)
+Auto: display refresh, max 120 (recommended)	Automático: frecuencia de la pantalla, máx. 120 (recomendado)
+No limit	Sin límite
+Mailbox (low latency, no tearing)	Mailbox (baja latencia, sin cortes)
+Immediate (tearing)	Immediate (con cortes)
+1 (default)	1 (predeterminado)
+Unbounded	Sin límite
+Your game is version {}: these options are patches for 1.09 and are not applied; the game runs at 30 FPS. Update the dump to 1.09 to use them.	Tu juego es la versión {}: estas opciones son parches para la 1.09 y no se aplican; el juego va a 30 FPS. Actualiza el volcado a la 1.09 para usarlas.
+Your game dump, saves and the game patches.	Tu volcado del juego, partidas y parches.
+Game	Juego
+Game folder	Carpeta del juego
+Choose the folder with eboot.bin	Elige la carpeta con eboot.bin
+Your own dump of CUSA03173 (eboot.bin, sce_module, sce_sys, dvdroot_ps4); version 1.09 for the community patches.	Tu propio volcado de CUSA03173 (eboot.bin, sce_module, sce_sys, dvdroot_ps4); versión 1.09 para los parches de la comunidad.
+Saves folder	Carpeta de partidas
+Choose the saves folder	Elige la carpeta de partidas
+Empty: {} (shader caches are kept there too).	Vacío: {} (también guarda la caché de shaders).
+Game language	Idioma del juego
+Player name	Nombre del jugador
+Where the game shows the PSN name; empty: the default.	Donde el juego muestra el nombre de PSN; vacío: el predeterminado.
+Effects	Efectos
+Chromatic aberration	Aberración cromática
+Depth of field	Profundidad de campo
+Motion blur	Desenfoque de movimiento
+Ambient occlusion (SSAO)	Oclusión ambiental (SSAO)
+The game's own anti-aliasing	Antialiasing propio del juego
+Shadows of dynamic lights	Sombras de luces dinámicas
+Screen-space reflections (not in the original)	Reflejos en pantalla (no estaban en el original)
+Extras	Extras
+Skip the intro logos and movie	Saltar logotipos y vídeo de introducción
+Free camera (hold Cross + L3; keyboard Space + Z)	Cámara libre (mantén Cross + L3; teclado Space + Z)
+Game debug menu (left touchpad / Tab; needs the debug fonts)	Menú de depuración (touchpad izquierdo / Tab; necesita las fuentes de depuración)
+Effects and extras are game patches for version 1.09, applied at start.	Los efectos y extras son parches para la versión 1.09 y se aplican al iniciar.
+English	Inglés
+Russian	Ruso
+Japanese	Japonés
+French	Francés
+Spanish	Español
+German	Alemán
+Italian	Italiano
+The game files are never changed: mods are layered over them at start.	Los archivos del juego nunca cambian: los mods se superponen al iniciar.
+Mods	Mods
+Load mods	Cargar mods
+Loose-file mods, each in its own folder (with dvdroot_ps4, or chr\\, parts\\ … directly).	Mods de archivos sueltos, cada uno en su carpeta (con dvdroot_ps4, o chr\\, parts\\ … directamente).
+Mods folder	Carpeta de mods
+Choose the mods folder	Elige la carpeta de mods
+Empty: {}	Vacío: {}
+Third-party patches	Parches de terceros
+Patches folder	Carpeta de parches
+Choose the patches folder	Elige la carpeta de parches
+shadPS4/GoldHEN XML patch files for version 1.09. Empty: {}	Archivos XML de parches shadPS4/GoldHEN para la 1.09. Vacío: {}
+Refresh	Actualizar
+No mods in {} yet.	Aún no hay mods en {}.
+Lower in the list loads later and wins conflicts.	Más abajo en la lista se carga después y gana en conflictos.
+No patch files for version 1.09 yet.	Aún no hay archivos de parches para la 1.09.
+Launcher options, performance switches and diagnostics.	Opciones del lanzador, rendimiento y diagnóstico.
+Launcher	Lanzador
+Launcher language	Idioma del lanzador
+Applies when the launcher opens again.	Se aplica al volver a abrir el lanzador.
+Close the launcher when the game starts	Cerrar el lanzador al iniciar el juego
+Desktop shortcut	Acceso directo en el escritorio
+Port folder	Carpeta del port
+Shortcut created on the desktop.	Acceso directo creado en el escritorio.
+Performance	Rendimiento
+Two-stage GPU pipeline	Canal de GPU en dos etapas
+20–30% faster; switch it off if the game is unstable.	Un 20–30% más rápido; desactívalo si el juego es inestable.
+Auto (8+ threads)	Automático (8+ hilos)
+On	Activado
+Off (more stable)	Desactivado (más estable)
+GPU readbacks	Lecturas de la GPU
+How exactly data the GPU writes is copied back for the game.	Con qué precisión se devuelven al juego los datos que escribe la GPU.
+Relaxed (default)	Relaxed (predeterminado)
+Diagnostics	Diagnóstico
+Frame statistics in the log (every 5 s)	Estadísticas de fotogramas en el registro (cada 5 s)
+GPU time per pass in the log	Tiempo de GPU por pasada en el registro
+Vulkan validation layers (needs the Vulkan SDK; much slower)	Capas de validación de Vulkan (necesita el Vulkan SDK; mucho más lento)
+Extra variables	Variables extra
+NAME=value pairs separated by spaces (README lists them).	Pares NOMBRE=valor separados por espacios (lista en el README).
+System	Sistema
+Copy	Copiar
+Clear	Borrar
+Browse…	Examinar…
+Open	Abrir
+Cheats	Trucos
+Game patches for version 1.09, applied at start. Leave them off for a normal play-through.	Parches del juego para la versión 1.09, aplicados al iniciar. Déjalos desactivados para una partida normal.
+Gameplay tweaks	Ajustes de juego
+Never die (health stops at 1 HP)	No morir nunca (la salud no baja de 1 PS)
+Enemies do not see you (unless attacked)	Los enemigos no te ven (salvo si atacas)
+Enemies do not hear you	Los enemigos no te oyen
+Rally never fades	El Rally no se desvanece
+Control the targeted enemy (R3; L3 to go back; not with the free camera)	Controlar al enemigo fijado (R3; L3 para volver; no con la cámara libre)
+No Rally (hits do not give health back)	Sin Rally (los golpes no devuelven salud)
+Camera further from the character	Cámara más alejada del personaje
+No camera auto-rotation while moving	Sin giro automático de la cámara al moverse
+Run with less stick tilt (about 70%)	Correr con menos inclinación del stick (~70%)
+Dark Souls-style ragdoll physics (corpses fly further)	Física de cuerpos al estilo Dark Souls (los cadáveres vuelan más)
+Clear shader cache	Borrar la caché de shaders
+If the game only shows a black screen, this usually helps.	Si el juego solo muestra una pantalla negra, esto suele ayudar.
+Shader cache cleared. The next start stutters for a few minutes while it is rebuilt.	Caché de shaders borrada. El próximo inicio tendrá tirones unos minutos mientras se reconstruye.
+Version {} is available.	La versión {} está disponible.
+Update	Actualizar
+What's new	Novedades
+Install version {} now? The launcher closes, installs it and opens again. Saves and settings are kept.	¿Instalar la versión {} ahora? El lanzador se cerrará, la instalará y volverá a abrirse. Se conservan partidas y ajustes.
+Downloading version {}… {}%	Descargando la versión {}… {}%
+Update failed: {}	La actualización falló: {}
+Close the game before updating.	Cierra el juego antes de actualizar.
+Check for updates when the launcher opens	Buscar actualizaciones al abrir el lanzador
+Check for updates	Buscar actualizaciones
+You have the latest version ({}).	Tienes la última versión ({}).
+Could not check for updates: {}	No se pudieron buscar actualizaciones: {}
+Could not install the update. Download it from the releases page.	No se pudo instalar la actualización. Descárgala desde la página de versiones.
+Online co-op	Cooperativo en línea
+Messages, bloodstains and ghosts come from The Hunter's Dream; bells and summons go through a shadNet server.	Los mensajes, manchas de sangre y fantasmas vienen de The Hunter's Dream; las campanas y las invocaciones pasan por un servidor shadNet.
+Play online	Jugar en línea
+Off: the game stays offline, as before.	Desactivado: el juego sigue sin conexión, como antes.
+Game server (messages, bloodstains, ghosts)	Servidor del juego (mensajes, manchas de sangre, fantasmas)
+Game server	Servidor del juego
+The Hunter's Dream by default. Only the name is needed; the game picks the ports.	The Hunter's Dream por defecto. Basta con el nombre; el juego elige los puertos.
+Co-op server (bells and summons)	Servidor cooperativo (campanas e invocaciones)
+Server address	Dirección del servidor
+srv.shadps4.net:31313 is the public shadPS4 server. For a private server, enter host:port from the person who runs it.	srv.shadps4.net:31313 es el servidor público de shadPS4. Para un servidor privado, escribe el host:puerto que te dé quien lo gestiona.
+WebAPI address	Dirección WebAPI
+Of the shadNet server, not the game server. Leave empty: the server address with port 31315 is used.	La del servidor shadNet, no la del servidor del juego. Déjala vacía: se usa la dirección del servidor con el puerto 31315.
+Account	Cuenta
+Online ID (NPID)	ID en línea (NPID)
+Your shadNet account name, not your email. Register one at shadnet.shadps4.net, or ask the owner of a private server.	El nombre de tu cuenta shadNet, no tu correo. Regístrate en shadnet.shadps4.net o pídesela al dueño de un servidor privado.
+Password	Contraseña
+Saved on this PC with the other launcher settings.	Se guarda en este PC con el resto de ajustes del lanzador.
+Connection	Conexión
+UPnP (open a port on the router automatically)	UPnP (abrir un puerto en el router automáticamente)
+Turn it off on Tailscale or another VPN.	Desactívalo con Tailscale u otra VPN.
+Everyone in a session needs the same game version (1.09) and the same server. Cheats change the game for the other players too: turn them off when you play together.	Todos en la sesión necesitan la misma versión del juego (1.09) y el mismo servidor. Los trucos cambian el juego también para los demás: desactívalos cuando juguéis juntos.
+Online	En línea
+Offline	Sin conexión
+Bloodborne is in your Steam library. It starts with the settings saved in this launcher.	Bloodborne está en tu biblioteca de Steam. Se inicia con los ajustes guardados en este lanzador.
+An online account is filled in, but "Play online" is off.\n\nYes: play online.   No: play offline.	Hay una cuenta en línea, pero «Jugar en línea» está desactivado.\n\nSí: jugar en línea.   No: jugar sin conexión.
+The Online ID is the account name (NPID) you registered on the server, not your email address.	El ID en línea es el nombre de cuenta (NPID) que registraste en el servidor, no tu correo.
+Steam was not found on this PC (or nobody has signed in to it yet).	No se encontró Steam en este PC (o nadie ha iniciado sesión todavía).
+Game server {0}: reachable	Servidor del juego {0}: accesible
+Server {0}: reachable	Servidor {0}: accesible
+Checking…	Comprobando…
+Test connection	Probar la conexión
+Steam has to close while the game is added; it starts again afterwards. Close Steam now?	Steam debe cerrarse mientras se añade el juego; después se vuelve a abrir. ¿Cerrar Steam ahora?
+Steam did not close. Close it yourself and try again.	Steam no se cerró. Ciérralo tú y vuelve a intentarlo.
+Game server {0}: not reachable ({1})	Servidor del juego {0}: no accesible ({1})
+Server {0}: not reachable ({1})	Servidor {0}: no accesible ({1})
+WebAPI {0}: reachable	WebAPI {0}: accesible
+WebAPI {0}: answered, but it is not a shadNet server	WebAPI {0}: responde, pero no es un servidor shadNet
+WebAPI {0}: not reachable ({1})	WebAPI {0}: no accesible ({1})
+by giahoki	por giahoki
+Add to Steam	Añadir a Steam
+The WebAPI box holds the game server address; it is ignored.	El campo WebAPI contiene la dirección del servidor del juego; se ignora.
+"Play online" is off: the game starts offline.	«Jugar en línea» está desactivado: el juego se inicia sin conexión.
+Could not add the game to Steam: {}	No se pudo añadir el juego a Steam: {}

@@ -1,0 +1,239 @@
+# Launcher texts, zh: English text<TAB>translation (\n is a line break).
+Play	开始
+Graphics	图形
+Display & FPS	显示与帧率
+Game & effects	游戏与效果
+Mods & patches	模组与补丁
+Advanced	高级
+Log	日志
+PLAY	开始游戏
+Stop	停止
+native port · Windows	原生移植 · Windows
+In the game: Insert or L3+R3\nopens the port's menu.	游戏中：Insert 或 L3+R3\n打开移植版菜单。
+Ready check	就绪检查
+Quick settings	快速设置
+Frame rate	帧率
+Upscaler	超分辨率
+Preset	预设
+Output	输出
+Fullscreen	全屏
+CUSA03173 · game version {}	CUSA03173 · 游戏版本 {}
+Game folder not set	未设置游戏文件夹
+Choose your game folder (Game & effects)	请选择游戏文件夹（游戏与效果）
+✓ Game version {}: every patch available	✓ 游戏版本 {}：所有补丁可用
+⚠ Game version {}: runs at 30 FPS without the community patches (they are for 1.09)	⚠ 游戏版本 {}：不含社区补丁，以 30 FPS 运行（补丁适用于 1.09）
+✗ No eboot.bin in the game folder (Game & effects)	✗ 游戏文件夹中没有 eboot.bin（游戏与效果）
+✓ Saves found in {}	✓ 在 {} 找到存档
+• No saves yet: the game creates them in {}	• 暂无存档：游戏会在 {} 中创建
+✓ Graphics card: {}	✓ 显卡：{}
+• Graphics card: not checked	• 显卡：未检查
+• Checking the graphics card…	• 正在检查显卡…
+✗ No Vulkan 1.3 graphics card found (update the driver)	✗ 未找到支持 Vulkan 1.3 的显卡（请更新驱动）
+✓ FSR 4 assets installed	✓ 已安装 FSR 4 文件
+• FSR 4 assets missing (Graphics); FSR 3.1 is used meanwhile	• 缺少 FSR 4 文件（图形）；暂时使用 FSR 3.1
+Choose the game folder first.	请先选择游戏文件夹。
+Preparing the game; it opens in its own window…	正在准备游戏，将在单独的窗口中打开…
+The game is running.	游戏正在运行。
+Restarting with the new settings…	正在以新设置重新启动…
+\n— the game exited (code {}) —\n	\n— 游戏已退出（代码 {}）—\n
+Could not start: {}	无法启动：{}
+Choose the game folder with eboot.bin (CUSA03173).	请选择包含 eboot.bin 的游戏文件夹（CUSA03173）。
+Stored in bbport.ini; the in-game menu (Insert or L3+R3) changes the same values.	保存在 bbport.ini 中；游戏内菜单（Insert 或 L3+R3）会修改相同的值。
+Upscaling	超分辨率
+Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot products; otherwise the game falls back to FSR 3.1 by itself.	使用游戏自身运动矢量的时间性超分辨率。FSR 4 需要其文件（见下方）和支持 INT8 的显卡；否则游戏会自动改用 FSR 3.1。
+Quality preset	画质预设
+Render scale per axis: Quality renders at 1/1.5 of the output size.	每轴渲染比例：Quality 以输出尺寸的 1/1.5 渲染。
+Output resolution	输出分辨率
+What the upscaler produces; the HUD is drawn at this size too.	超分辨率生成的尺寸；界面也以此尺寸绘制。
+Live resolution changes	实时切换分辨率
+Off: outputs other than 1080p are set by a patch at start (fastest; changing them in the game restarts it). On: change output and preset in the game without a restart, at a cost.	关闭：1080p 以外的输出在启动时由补丁设置（最快；在游戏中更改会重启游戏）。开启：在游戏中更改输出和预设无需重启，但有性能开销。
+Sharpening (RCAS)	锐化 (RCAS)
+Sharpness	锐化强度
+Object motion vectors	物体运动矢量
+Less ghosting on characters, cloth and weapons; costs about 10% FPS.	减少角色、服装和武器上的拖影；约损失 10% 帧率。
+FSR 4 assets	FSR 4 文件
+Download FSR 4 assets	下载 FSR 4 文件
+From FireBurn/Q2RTX on GitHub (built from AMD's MIT-licensed FidelityFX source), about 30 MB, into the fsr4_shaders folder of the port.	来自 GitHub 上的 FireBurn/Q2RTX（由 AMD 采用 MIT 许可的 FidelityFX 源码构建），约 30 MB，放入移植版的 fsr4_shaders 文件夹。
+Installed: {} files in {}.	已安装：{} 个文件，位于 {}。
+{} of {} files missing in {}.	{} 中缺少 {} 个文件中的 {} 个。
+Download failed: {}	下载失败：{}
+Detail	细节
+Model detail (LOD)	模型细节 (LOD)
+A game patch (game version 1.09).	游戏补丁（版本 1.09）。
+Show the FPS counter	显示帧率计数器
+FSR 4 (best quality)	FSR 4（最佳画质）
+FSR 4.1.1 (needs fsr4_411 assets)	FSR 4.1.1（需要 fsr4_411 文件）
+FSR 3.1 (every GPU)	FSR 3.1（任何显卡）
+TAA (native resolution anti-aliasing)	TAA（原生分辨率抗锯齿）
+Off	关闭
+Auto (by graphics card)	自动（根据显卡）
+Off (faster)	关闭（更快）
+On (change without restarting)	开启（无需重启即可更改）
+As in the game	与游戏相同
+Highest (−2)	最高 (−2)
+Lower (1)	较低 (1)
+Lowest (2)	最低 (2)
+Applied when the game starts.	在游戏启动时应用。
+Community patches for game version 1.09. Unlocked makes the game use the real frame time. Other game versions always run at 30 FPS (the patches would corrupt them).	适用于游戏版本 1.09 的社区补丁。不限帧会让游戏使用真实帧时间。其他版本始终以 30 FPS 运行（补丁会损坏它们）。
+Frame cap (unlocked mode)	帧率上限（不限帧模式）
+Above about 120 FPS the game's movement timing breaks (running and rolling get slower, physics and animations can glitch): higher caps are at your own risk.	超过约 120 FPS 时游戏的移动计时会出错（奔跑和翻滚变慢，物理和动画可能异常）：更高的上限风险自负。
+Frames ahead of the GPU	领先 GPU 的帧数
+1 keeps frame pacing even; more can raise FPS when the graphics card is the limit.	1 可保持帧节奏平稳；显卡成为瓶颈时，更大的值可能提高帧率。
+Window	窗口
+Presentation	呈现方式
+Allow HDR output	允许 HDR 输出
+When HDR is on in Windows and the display supports it.	在 Windows 中开启 HDR 且显示器支持时。
+Unlocked (frame-time patch)	不限帧（帧时间补丁）
+30 FPS (as on PS4)	30 FPS（与 PS4 相同）
+Auto: display refresh, max 120 (recommended)	自动：显示器刷新率，最高 120（推荐）
+No limit	不限制
+Mailbox (low latency, no tearing)	Mailbox（低延迟，无撕裂）
+Immediate (tearing)	Immediate（有撕裂）
+1 (default)	1（默认）
+Unbounded	不限
+Your game is version {}: these options are patches for 1.09 and are not applied; the game runs at 30 FPS. Update the dump to 1.09 to use them.	你的游戏是 {} 版本：这些选项是 1.09 的补丁，不会生效；游戏以 30 FPS 运行。将游戏更新到 1.09 后即可使用。
+Your game dump, saves and the game patches.	你的游戏转储、存档和游戏补丁。
+Game	游戏
+Game folder	游戏文件夹
+Choose the folder with eboot.bin	选择包含 eboot.bin 的文件夹
+Your own dump of CUSA03173 (eboot.bin, sce_module, sce_sys, dvdroot_ps4); version 1.09 for the community patches.	你自己的 CUSA03173 转储（eboot.bin、sce_module、sce_sys、dvdroot_ps4）；社区补丁需要 1.09 版本。
+Saves folder	存档文件夹
+Choose the saves folder	选择存档文件夹
+Empty: {} (shader caches are kept there too).	为空：{}（着色器缓存也保存在此）。
+Game language	游戏语言
+Player name	玩家名称
+Where the game shows the PSN name; empty: the default.	游戏显示 PSN 名称的位置；为空：默认。
+Effects	效果
+Chromatic aberration	色差
+Depth of field	景深
+Motion blur	动态模糊
+Ambient occlusion (SSAO)	环境光遮蔽 (SSAO)
+The game's own anti-aliasing	游戏自带抗锯齿
+Shadows of dynamic lights	动态光源阴影
+Screen-space reflections (not in the original)	屏幕空间反射（原版没有）
+Extras	附加
+Skip the intro logos and movie	跳过开场标志和影片
+Free camera (hold Cross + L3; keyboard Space + Z)	自由镜头（按住 Cross + L3；键盘 Space + Z）
+Game debug menu (left touchpad / Tab; needs the debug fonts)	游戏调试菜单（左触摸板 / Tab；需要调试字体）
+Effects and extras are game patches for version 1.09, applied at start.	效果和附加项是适用于 1.09 版本的游戏补丁，在启动时应用。
+English	英语
+Russian	俄语
+Japanese	日语
+French	法语
+Spanish	西班牙语
+German	德语
+Italian	意大利语
+The game files are never changed: mods are layered over them at start.	游戏文件永远不会被修改：模组在启动时叠加。
+Mods	模组
+Load mods	加载模组
+Loose-file mods, each in its own folder (with dvdroot_ps4, or chr\\, parts\\ … directly).	散装文件模组，每个放在单独的文件夹中（含 dvdroot_ps4，或直接放 chr\\、parts\\ …）。
+Mods folder	模组文件夹
+Choose the mods folder	选择模组文件夹
+Empty: {}	为空：{}
+Third-party patches	第三方补丁
+Patches folder	补丁文件夹
+Choose the patches folder	选择补丁文件夹
+shadPS4/GoldHEN XML patch files for version 1.09. Empty: {}	适用于 1.09 的 shadPS4/GoldHEN XML 补丁文件。为空：{}
+Refresh	刷新
+No mods in {} yet.	{} 中还没有模组。
+Lower in the list loads later and wins conflicts.	列表中越靠下越晚加载，冲突时优先。
+No patch files for version 1.09 yet.	还没有适用于 1.09 的补丁文件。
+Launcher options, performance switches and diagnostics.	启动器选项、性能开关和诊断。
+Launcher	启动器
+Launcher language	启动器语言
+Applies when the launcher opens again.	重新打开启动器后生效。
+Close the launcher when the game starts	游戏启动时关闭启动器
+Desktop shortcut	桌面快捷方式
+Port folder	移植版文件夹
+Shortcut created on the desktop.	已在桌面创建快捷方式。
+Performance	性能
+Two-stage GPU pipeline	两阶段 GPU 流水线
+20–30% faster; switch it off if the game is unstable.	快 20–30%；如果游戏不稳定请关闭。
+Auto (8+ threads)	自动（8 线程以上）
+On	开启
+Off (more stable)	关闭（更稳定）
+GPU readbacks	GPU 回读
+How exactly data the GPU writes is copied back for the game.	GPU 写入的数据返回给游戏的精确程度。
+Relaxed (default)	Relaxed（默认）
+Diagnostics	诊断
+Frame statistics in the log (every 5 s)	在日志中显示帧统计（每 5 秒）
+GPU time per pass in the log	在日志中显示每个通道的 GPU 时间
+Vulkan validation layers (needs the Vulkan SDK; much slower)	Vulkan 验证层（需要 Vulkan SDK；会慢很多）
+Extra variables	额外变量
+NAME=value pairs separated by spaces (README lists them).	以空格分隔的 名称=值 对（列表见 README）。
+System	跟随系统
+Copy	复制
+Clear	清除
+Browse…	浏览…
+Open	打开
+Cheats	作弊
+Game patches for version 1.09, applied at start. Leave them off for a normal play-through.	适用于 1.09 版本的游戏补丁，在启动时应用。正常游玩请保持关闭。
+Gameplay tweaks	玩法调整
+Never die (health stops at 1 HP)	永不死亡（生命值不低于 1）
+Enemies do not see you (unless attacked)	敌人看不见你（除非被攻击）
+Enemies do not hear you	敌人听不见你
+Rally never fades	回血（Rally）不会消退
+Control the targeted enemy (R3; L3 to go back; not with the free camera)	控制锁定的敌人（R3；L3 返回；不能与自由镜头同时使用）
+No Rally (hits do not give health back)	无回血（攻击不恢复生命值）
+Camera further from the character	镜头离角色更远
+No camera auto-rotation while moving	移动时镜头不自动旋转
+Run with less stick tilt (about 70%)	摇杆推得更少即可奔跑（约 70%）
+Dark Souls-style ragdoll physics (corpses fly further)	Dark Souls 式布娃娃物理（尸体飞得更远）
+Clear shader cache	清除着色器缓存
+If the game only shows a black screen, this usually helps.	如果游戏只显示黑屏，这通常能解决。
+Shader cache cleared. The next start stutters for a few minutes while it is rebuilt.	着色器缓存已清除。下次启动的前几分钟会因重建缓存而卡顿。
+Version {} is available.	新版本 {} 已发布。
+Update	更新
+What's new	更新内容
+Install version {} now? The launcher closes, installs it and opens again. Saves and settings are kept.	现在安装版本 {} 吗？启动器会关闭、完成安装后重新打开。存档和设置会保留。
+Downloading version {}… {}%	正在下载版本 {}… {}%
+Update failed: {}	更新失败：{}
+Close the game before updating.	请先关闭游戏再更新。
+Check for updates when the launcher opens	打开启动器时检查更新
+Check for updates	检查更新
+You have the latest version ({}).	已是最新版本（{}）。
+Could not check for updates: {}	无法检查更新：{}
+Could not install the update. Download it from the releases page.	无法安装更新。请从发布页面下载。
+Online co-op	在线合作
+Messages, bloodstains and ghosts come from The Hunter's Dream; bells and summons go through a shadNet server.	留言、血迹和幽灵来自 The Hunter's Dream；铃铛和召唤通过 shadNet 服务器进行。
+Play online	在线游玩
+Off: the game stays offline, as before.	关闭：游戏保持离线，和以前一样。
+Game server (messages, bloodstains, ghosts)	游戏服务器（留言、血迹、幽灵）
+Game server	游戏服务器
+The Hunter's Dream by default. Only the name is needed; the game picks the ports.	默认为 The Hunter's Dream。只需填写名称，端口由游戏决定。
+Co-op server (bells and summons)	合作服务器（铃铛和召唤）
+Server address	服务器地址
+srv.shadps4.net:31313 is the public shadPS4 server. For a private server, enter host:port from the person who runs it.	srv.shadps4.net:31313 是 shadPS4 的公共服务器。如使用私人服务器，请填写服务器管理者提供的 host:port。
+WebAPI address	WebAPI 地址
+Of the shadNet server, not the game server. Leave empty: the server address with port 31315 is used.	这是 shadNet 服务器的地址，不是游戏服务器的。留空即可：将使用服务器地址加端口 31315。
+Account	账户
+Online ID (NPID)	在线 ID (NPID)
+Your shadNet account name, not your email. Register one at shadnet.shadps4.net, or ask the owner of a private server.	你的 shadNet 账户名，不是邮箱。可在 shadnet.shadps4.net 注册，或向私人服务器的管理者索取。
+Password	密码
+Saved on this PC with the other launcher settings.	与启动器的其他设置一起保存在这台电脑上。
+Connection	连接
+UPnP (open a port on the router automatically)	UPnP（自动在路由器上打开端口）
+Turn it off on Tailscale or another VPN.	使用 Tailscale 或其他 VPN 时请关闭。
+Everyone in a session needs the same game version (1.09) and the same server. Cheats change the game for the other players too: turn them off when you play together.	同一场次的所有玩家需要相同的游戏版本 (1.09) 和相同的服务器。作弊也会影响其他玩家的游戏：一起游玩时请关闭。
+Online	在线
+Offline	离线
+Bloodborne is in your Steam library. It starts with the settings saved in this launcher.	Bloodborne 已加入你的 Steam 库，会使用此启动器中保存的设置启动。
+An online account is filled in, but "Play online" is off.\n\nYes: play online.   No: play offline.	已填写在线账户，但“在线游玩”未开启。\n\n是：在线游玩。   否：离线游玩。
+The Online ID is the account name (NPID) you registered on the server, not your email address.	在线 ID 是你在服务器上注册的账户名 (NPID)，不是邮箱地址。
+Steam was not found on this PC (or nobody has signed in to it yet).	在这台电脑上找不到 Steam（或者还没有人登录过）。
+Game server {0}: reachable	游戏服务器 {0}：可连接
+Server {0}: reachable	服务器 {0}：可连接
+Checking…	正在检查…
+Test connection	测试连接
+Steam has to close while the game is added; it starts again afterwards. Close Steam now?	添加游戏时需要关闭 Steam，之后会重新启动。现在关闭 Steam 吗？
+Steam did not close. Close it yourself and try again.	Steam 没有关闭。请手动关闭后重试。
+Game server {0}: not reachable ({1})	游戏服务器 {0}：无法连接 ({1})
+Server {0}: not reachable ({1})	服务器 {0}：无法连接 ({1})
+WebAPI {0}: reachable	WebAPI {0}：可连接
+WebAPI {0}: answered, but it is not a shadNet server	WebAPI {0}：有响应，但不是 shadNet 服务器
+WebAPI {0}: not reachable ({1})	WebAPI {0}：无法连接 ({1})
+by giahoki	作者：giahoki
+Add to Steam	添加到 Steam
+The WebAPI box holds the game server address; it is ignored.	WebAPI 栏中填写的是游戏服务器地址，将被忽略。
+"Play online" is off: the game starts offline.	“在线游玩”未开启：游戏将以离线方式启动。
+Could not add the game to Steam: {}	无法将游戏添加到 Steam：{}

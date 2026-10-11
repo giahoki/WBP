@@ -1,0 +1,44 @@
+# Launcher texts, ru: English text<TAB>translation (\n is a line break).
+Online co-op	Онлайн-кооператив
+Messages, bloodstains and ghosts come from The Hunter's Dream; bells and summons go through a shadNet server.	Сообщения, пятна крови и призраки приходят с сервера The Hunter's Dream; колокола и призывы идут через сервер shadNet.
+Play online	Играть онлайн
+Off: the game stays offline, as before.	Выключено: игра остаётся офлайн, как раньше.
+Game server (messages, bloodstains, ghosts)	Игровой сервер (сообщения, пятна крови, призраки)
+Game server	Игровой сервер
+The Hunter's Dream by default. Only the name is needed; the game picks the ports.	По умолчанию The Hunter's Dream. Нужно только имя, порты игра выберет сама.
+Co-op server (bells and summons)	Сервер кооператива (колокола и призывы)
+Server address	Адрес сервера
+srv.shadps4.net:31313 is the public shadPS4 server. For a private server, enter host:port from the person who runs it.	srv.shadps4.net:31313 — публичный сервер shadPS4. Для частного сервера введите host:port от его владельца.
+WebAPI address	Адрес WebAPI
+Of the shadNet server, not the game server. Leave empty: the server address with port 31315 is used.	Сервера shadNet, а не игрового сервера. Оставьте пустым: будет использован адрес сервера с портом 31315.
+Account	Учётная запись
+Online ID (NPID)	Онлайн-ID (NPID)
+Your shadNet account name, not your email. Register one at shadnet.shadps4.net, or ask the owner of a private server.	Имя вашей учётной записи shadNet, а не почта. Зарегистрируйтесь на shadnet.shadps4.net или спросите владельца частного сервера.
+Password	Пароль
+Saved on this PC with the other launcher settings.	Хранится на этом ПК вместе с остальными настройками лаунчера.
+Connection	Подключение
+UPnP (open a port on the router automatically)	UPnP (автоматически открыть порт на роутере)
+Turn it off on Tailscale or another VPN.	Выключите при Tailscale или другом VPN.
+Everyone in a session needs the same game version (1.09) and the same server. Cheats change the game for the other players too: turn them off when you play together.	У всех в сессии должна быть одна версия игры (1.09) и один сервер. Читы меняют игру и для других игроков: выключайте их, когда играете вместе.
+Online	Онлайн
+Offline	Офлайн
+Bloodborne is in your Steam library. It starts with the settings saved in this launcher.	Bloodborne добавлен в библиотеку Steam. Игра запускается с настройками, сохранёнными в этом лаунчере.
+An online account is filled in, but "Play online" is off.\n\nYes: play online.   No: play offline.	Учётная запись указана, но «Играть онлайн» выключено.\n\nДа: играть онлайн.   Нет: играть офлайн.
+The Online ID is the account name (NPID) you registered on the server, not your email address.	Онлайн-ID — это имя учётной записи (NPID), зарегистрированной на сервере, а не адрес почты.
+Steam was not found on this PC (or nobody has signed in to it yet).	Steam не найден на этом ПК (или в него ещё никто не входил).
+Game server {0}: reachable	Игровой сервер {0}: доступен
+Server {0}: reachable	Сервер {0}: доступен
+Checking…	Проверка…
+Test connection	Проверить подключение
+Steam has to close while the game is added; it starts again afterwards. Close Steam now?	Пока игра добавляется, Steam нужно закрыть; потом он запустится снова. Закрыть Steam сейчас?
+Steam did not close. Close it yourself and try again.	Steam не закрылся. Закройте его сами и попробуйте ещё раз.
+Game server {0}: not reachable ({1})	Игровой сервер {0}: недоступен ({1})
+Server {0}: not reachable ({1})	Сервер {0}: недоступен ({1})
+WebAPI {0}: reachable	WebAPI {0}: доступен
+WebAPI {0}: answered, but it is not a shadNet server	WebAPI {0}: отвечает, но это не сервер shadNet
+WebAPI {0}: not reachable ({1})	WebAPI {0}: недоступен ({1})
+by giahoki	автор: giahoki
+Add to Steam	Добавить в Steam
+The WebAPI box holds the game server address; it is ignored.	В поле WebAPI указан адрес игрового сервера; он не используется.
+"Play online" is off: the game starts offline.	«Играть онлайн» выключено: игра запустится офлайн.
+Could not add the game to Steam: {}	Не удалось добавить игру в Steam: {}
