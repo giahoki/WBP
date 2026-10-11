@@ -10,6 +10,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <source_location>
 #include <span>
 #include <utility>
 #include <vector>
@@ -680,15 +681,16 @@ public:
     void Flush();
 
     /// Sends the current execution context to the GPU and waits for it to complete.
-    void Finish();
+    void Finish(std::source_location where = std::source_location::current());
 
     /// wbp: waits for the work submitted so far but leaves the command buffer being
     /// recorded open, so a CommandBuffer() the caller holds stays valid (Finish() submits it:
     /// recording into a submitted buffer crashes AMD's driver).
-    void WaitSubmitted();
+    void WaitSubmitted(std::source_location where = std::source_location::current());
 
     /// Waits for the given tick to trigger on the GPU.
-    void Wait(u64 tick);
+    /// wbp: the time waited is counted per call site (BbStats::NoteTickWait).
+    void Wait(u64 tick, std::source_location where = std::source_location::current());
 
     /// Attempts to execute operations whose tick the GPU has caught up with.
     void PopPendingOperations();

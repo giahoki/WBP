@@ -438,6 +438,7 @@ int main(int argc, char **argv) {
         bbnet_configure(app0,serial,title,version);
     }
     bbgpu_register_kernel();
+    runtime_sampler_start();
 #ifdef _WIN32
     SYSTEM_INFO system_info; GetSystemInfo(&system_info); page_size = system_info.dwPageSize;
     AddVectoredExceptionHandler(1, vectored_fault);

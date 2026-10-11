@@ -43,6 +43,30 @@ size_t NextChar(const std::string& s, size_t at) {
 }
 size_t Utf16Length(const std::string& s) { return Wide(s).size(); }
 
+// The byte offset of a UTF-16 position (DirectWrite counts in UTF-16 units).
+size_t ByteOfUtf16(const std::string& s, size_t u16) {
+    size_t at = 0, count = 0;
+    while (at < s.size() && count < u16) {
+        const size_t next = NextChar(s, at);
+        count += (uint8_t(s[at]) >= 0xF0) ? 2 : 1;
+        at = next;
+    }
+    return at;
+}
+
+// Word edges for Ctrl+arrows and double clicks: spaces and path separators end a word.
+bool WordChar(char c) { return !(c == ' ' || c == '\t' || c == '\\' || c == '/' || c == ':' || c == '.' || c == ','); }
+size_t WordLeft(const std::string& s, size_t at) {
+    while (at && !WordChar(s[PrevChar(s, at)])) at = PrevChar(s, at);
+    while (at && WordChar(s[PrevChar(s, at)])) at = PrevChar(s, at);
+    return at;
+}
+size_t WordRight(const std::string& s, size_t at) {
+    while (at < s.size() && !WordChar(s[at])) at = NextChar(s, at);
+    while (at < s.size() && WordChar(s[at])) at = NextChar(s, at);
+    return at;
+}
+
 }  // namespace
 
 uint64_t Ui::Id(std::string_view text, uint64_t seed) {
@@ -200,11 +224,6 @@ bool Ui::Slider(std::string_view id_text, const Rect& r, float& value, float lo,
             if (std::fabs(v - value) > step * 0.01f) value = v, changed = true;
         }
     }
-    if (hover && in.wheel != 0 && active_ != id) {
-        float v = std::clamp(value + (in.wheel > 0 ? step : -step), lo, hi);
-        if (v != value) value = v, changed = true;
-        in.wheel = 0;
-    }
     // The game's gauge: a row of notches, lit up to the value.
     const float t = std::clamp((value - lo) / (hi - lo), 0.f, 1.f);
     const float cy = r.y + r.h / 2;
@@ -236,87 +255,158 @@ bool Ui::Entry(std::string_view id_text, const Rect& r, std::string& text, bool 
     const bool hover = Hovered(r);
     if (hover) cursor = Cursor::Text;
     bool committed = false;
+    TextStyle s = Style(14.5f, TEXT);
+    s.wrap = false;
+    const Rect inner{r.x + 12, r.y, r.w - 24, r.h};
+    // What is drawn: the text, or a dot per character of a secret.
+    auto display = [&](const std::string& source) {
+        if (!secret) return source;
+        std::string dots;
+        for (size_t i = 0, n = Utf16Length(source); i < n; ++i) dots += "•";
+        return dots;
+    };
+    // The caret position under a point of the field.
+    auto hit = [&](float x) {
+        const std::string shown = display(edit_text_);
+        if (shown.empty()) return size_t(0);
+        BOOL trailing = FALSE, inside = FALSE;
+        DWRITE_HIT_TEST_METRICS m{};
+        g.Layout(shown, s, 4000)->HitTestPoint(x - (inner.x - entry_shift_), 1, &trailing, &inside, &m);
+        return ByteOfUtf16(edit_text_, m.textPosition + (trailing ? m.length : 0));
+    };
+    auto selection = [&] { return std::pair(std::min(anchor_, caret_), std::max(anchor_, caret_)); };
+    auto erase_selection = [&] {
+        const auto [a, b] = selection();
+        if (a == b) return false;
+        edit_text_.erase(a, b - a);
+        caret_ = anchor_ = a;
+        return true;
+    };
+    auto insert = [&](const std::string& u) {
+        erase_selection();
+        edit_text_.insert(caret_, u);
+        caret_ += u.size();
+        anchor_ = caret_;
+    };
+
     if (focus_ == id) {
         auto commit = [&] {
             if (edit_text_ != text) text = edit_text_, committed = true;
-            focus_ = 0;
+            focus_ = 0, selecting_ = false;
         };
         if (in.pressed[0] && !hover) {
             commit();
         } else {
-            for (char32_t c : in.chars)
-                if (c >= 32 && c != 127) {
-                    std::string u = Utf8Of(c);
-                    edit_text_.insert(caret_, u);
-                    caret_ += u.size();
+            // The mouse: a click puts the caret, a drag selects, a double click selects a word,
+            // Shift+click extends the selection.
+            if (in.pressed[0]) {
+                const size_t at = hit(in.x);
+                const bool shift = GetKeyState(VK_SHIFT) < 0;
+                if (in.time - last_click_ < 0.35 && !shift) {
+                    anchor_ = WordLeft(edit_text_, at == edit_text_.size() ? at : NextChar(edit_text_, at));
+                    caret_ = WordRight(edit_text_, anchor_);
+                    selecting_ = false;
+                    last_click_ = -10;
+                } else {
+                    caret_ = at;
+                    if (!shift) anchor_ = at;
+                    selecting_ = true;
+                    last_click_ = in.time;
                 }
+            } else if (selecting_ && in.down[0]) {
+                caret_ = hit(in.x);
+            } else {
+                selecting_ = false;
+            }
+            for (char32_t c : in.chars)
+                if (c >= 32 && c != 127) insert(Utf8Of(c));
             for (const KeyEvent& k : in.keys) {
-                const bool ctrl = k.mods & GLFW_MOD_CONTROL;
-                if (k.key == GLFW_KEY_BACKSPACE && caret_) {
-                    size_t p = PrevChar(edit_text_, caret_);
-                    edit_text_.erase(p, caret_ - p), caret_ = p;
-                } else if (k.key == GLFW_KEY_DELETE && caret_ < edit_text_.size()) {
-                    edit_text_.erase(caret_, NextChar(edit_text_, caret_) - caret_);
+                const bool ctrl = k.mods & GLFW_MOD_CONTROL, shift = k.mods & GLFW_MOD_SHIFT;
+                auto move = [&](size_t to) {
+                    caret_ = to;
+                    if (!shift) anchor_ = to;
+                };
+                const auto [a, b] = selection();
+                if (k.key == GLFW_KEY_BACKSPACE) {
+                    if (!erase_selection() && caret_) {
+                        const size_t p = ctrl ? WordLeft(edit_text_, caret_) : PrevChar(edit_text_, caret_);
+                        edit_text_.erase(p, caret_ - p), caret_ = anchor_ = p;
+                    }
+                } else if (k.key == GLFW_KEY_DELETE) {
+                    if (!erase_selection() && caret_ < edit_text_.size()) {
+                        const size_t n = ctrl ? WordRight(edit_text_, caret_) : NextChar(edit_text_, caret_);
+                        edit_text_.erase(caret_, n - caret_);
+                    }
                 } else if (k.key == GLFW_KEY_LEFT) {
-                    caret_ = PrevChar(edit_text_, caret_);
+                    if (a != b && !shift) move(a);
+                    else move(ctrl ? WordLeft(edit_text_, caret_) : PrevChar(edit_text_, caret_));
                 } else if (k.key == GLFW_KEY_RIGHT) {
-                    caret_ = NextChar(edit_text_, caret_);
+                    if (a != b && !shift) move(b);
+                    else move(ctrl ? WordRight(edit_text_, caret_) : NextChar(edit_text_, caret_));
                 } else if (k.key == GLFW_KEY_HOME) {
-                    caret_ = 0;
+                    move(0);
                 } else if (k.key == GLFW_KEY_END) {
-                    caret_ = edit_text_.size();
+                    move(edit_text_.size());
+                } else if (ctrl && k.key == GLFW_KEY_A) {
+                    anchor_ = 0, caret_ = edit_text_.size();
                 } else if (ctrl && k.key == GLFW_KEY_V && clipboard_get) {
                     std::string paste = clipboard_get();
                     paste.erase(std::remove_if(paste.begin(), paste.end(), [](char c) { return c == '\r' || c == '\n'; }),
                                 paste.end());
-                    edit_text_.insert(caret_, paste);
-                    caret_ += paste.size();
-                } else if (ctrl && k.key == GLFW_KEY_C && clipboard_set && !secret) {
-                    clipboard_set(edit_text_);
-                } else if (ctrl && k.key == GLFW_KEY_A) {
-                    caret_ = edit_text_.size();
+                    insert(paste);
+                } else if (ctrl && (k.key == GLFW_KEY_C || k.key == GLFW_KEY_X) && clipboard_set && !secret) {
+                    // with nothing selected the whole text is copied
+                    clipboard_set(a != b ? edit_text_.substr(a, b - a) : edit_text_);
+                    if (k.key == GLFW_KEY_X) {
+                        if (a == b) anchor_ = 0, caret_ = edit_text_.size();
+                        erase_selection();
+                    }
                 } else if (k.key == GLFW_KEY_ENTER || k.key == GLFW_KEY_KP_ENTER || k.key == GLFW_KEY_TAB) {
                     commit();
                     break;
                 } else if (k.key == GLFW_KEY_ESCAPE) {
-                    focus_ = 0;
+                    focus_ = 0, selecting_ = false;
                     break;
                 }
             }
         }
     } else if (hover && in.pressed[0]) {
+        // The first click selects everything, as an address bar does; the next ones place the caret.
         focus_ = id;
         edit_text_ = text;
-        caret_ = text.size();
+        entry_shift_ = 0;
+        anchor_ = 0, caret_ = text.size();
+        selecting_ = false;
+        last_click_ = -10;
     }
     const bool focused = focus_ == id;
-    const std::string& shown_source = focused ? edit_text_ : text;
-    std::string shown = shown_source;
-    if (secret) {
-        shown.clear();
-        for (size_t i = 0; i < Utf16Length(shown_source); ++i) shown += "•";
-    }
+    const std::string shown = display(focused ? edit_text_ : text);
     g.Fill(r, FIELD);
     g.Stroke(r, focused ? GOLD : hover ? LINE_STRONG : LINE);
     if (focused) g.Glow(Rect{r.x - 8, r.y - 8, r.w + 16, r.h + 16}, GOLD.Alpha(0.06f));
-    TextStyle s = Style(14.5f, TEXT);
-    s.wrap = false;
-    const Rect inner{r.x + 12, r.y, r.w - 24, r.h};
-    // Scroll the text so the caret stays visible.
-    float caret_x = 0;
+    // x of a byte offset of the edited text
+    auto x_of = [&](size_t at) {
+        const std::string before = display(edit_text_.substr(0, at));
+        return before.empty() ? 0.f : g.Measure(before, s).width;
+    };
+    float shift = 0;
     if (focused) {
-        const std::string before = secret ? std::string() : edit_text_.substr(0, caret_);
-        size_t count = secret ? Utf16Length(edit_text_.substr(0, caret_)) : 0;
-        std::string measure = before;
-        if (secret)
-            for (size_t i = 0; i < count; ++i) measure += "•";
-        caret_x = measure.empty() ? 0 : g.Measure(measure, s).width;
+        // Scroll the text so the caret stays visible, moving only when it would leave the field.
+        const float caret_x = x_of(caret_);
+        if (caret_x - entry_shift_ > inner.w - 4) entry_shift_ = caret_x - inner.w + 4;
+        if (caret_x - entry_shift_ < 0) entry_shift_ = caret_x;
+        entry_shift_ = std::max(0.f, std::min(entry_shift_, x_of(edit_text_.size()) - inner.w + 4));
+        shift = entry_shift_;
     }
-    const float shift = std::max(0.f, caret_x - inner.w + 4);
     PushClip(inner);
+    if (focused && anchor_ != caret_) {
+        const auto [a, b] = selection();
+        const float x0 = inner.x - shift + x_of(a), x1 = inner.x - shift + x_of(b);
+        g.Fill(Rect{x0, r.y + 7, x1 - x0, r.h - 14}, GOLD.Alpha(0.32f));
+    }
     g.Text(shown, Rect{inner.x - shift, inner.y, 4000, inner.h}, s, true);
-    if (focused && std::fmod(in.time, 1.0) < 0.6) {
-        const float cx = inner.x - shift + caret_x;
+    if (focused && (selecting_ || std::fmod(in.time, 1.0) < 0.6)) {
+        const float cx = inner.x - shift + x_of(caret_);
         g.Line(cx, r.y + 8, cx, r.Bottom() - 8, GOLD_HI, 1.2f);
     }
     PopClip();
@@ -531,8 +621,7 @@ bool Ui::Cycle(std::string_view id_text, const Rect& r, const Options& options, 
         else popup_ = id, popup_state_ = {r, options, nullptr, false, 0}, popup_choice_ = value;
     }
     if (row_hovered && !popup_) {
-        if (in.wheel != 0) step(in.wheel > 0 ? -1 : 1), in.wheel = 0;
-        else if (in.pressed[1]) step(1);
+        if (in.pressed[1]) step(1);  // the wheel scrolls the page, it never changes a value
     }
     const bool live = row_hovered || popup_ == id;
     auto chevron = [&](const Rect& a, bool point_right, bool hover) {

@@ -220,6 +220,8 @@ std::vector<std::string> EffectPatches(const Settings& settings) {
     auto lod = settings.find("model_lod");
     auto name = MODEL_LOD.find(lod == settings.end() ? "0" : lod->second);
     if (name != MODEL_LOD.end()) names.push_back(name->second);
+    auto shadows = settings.find("shadow_quality");
+    if (shadows != settings.end() && shadows->second == "low") names.push_back("Shadow Resolution 1024 (perf increase)");
     return names;
 }
 

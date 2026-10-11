@@ -16,6 +16,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <thread>
 
@@ -47,9 +49,106 @@ struct Window {
     Ui ui{gfx};
     Input pending;  // gathered by the callbacks between frames
     float scale = 1;
+    bool close_requested = false;  // the close button: the window closes after the closing animation
 };
 
 Window* Of(GLFWwindow* w) { return static_cast<Window*>(glfwGetWindowUserPointer(w)); }
+
+// A critically damped spring towards `target` (no overshoot, eases in and out), stable at any dt.
+void Damp(float& x, float& velocity, float target, float smooth_time, float dt) {
+    const float omega = 2 / smooth_time, k = omega * dt;
+    const float decay = 1 / (1 + k + 0.48f * k * k + 0.235f * k * k * k);
+    const float change = x - target, temp = (velocity + omega * change) * dt;
+    velocity = (velocity - omega * temp) * decay;
+    x = target + (change + temp) * decay;
+}
+
+float EaseOut(float t) {
+    t = std::clamp(t, 0.f, 1.f);
+    return 1 - (1 - t) * (1 - t) * (1 - t);
+}
+
+// The sky follows the cursor with weight instead of sticking to it: the parallax lags behind on
+// a spring, and when the cursor leaves the window it stays where it left, then drifts back to
+// the centre. The lantern follows closely and fades out outside. Also the opening and closing.
+struct Motion {
+    float x = 0.5f, y = 0.5f, vx = 0, vy = 0;
+    float lx = 0.5f, ly = 0.5f, lvx = 0, lvy = 0, lamp = 0;
+    float last_x = 0.5f, last_y = 0.5f;
+    double left_at = -100;
+
+    Gfx::Sky Step(const Input& in, float width, float height, double now, float dt, double closing_at) {
+        const bool inside = in.x >= 0 && in.y >= 0;
+        if (inside) {
+            last_x = std::clamp(in.x / std::max(1.f, width), 0.f, 1.f);
+            last_y = std::clamp(1 - in.y / std::max(1.f, height), 0.f, 1.f);
+            left_at = -100;
+        } else if (left_at < 0) {
+            left_at = now;
+        }
+        const bool home = !inside && now - left_at > 0.8;
+        const float tx = home ? 0.5f : last_x, ty = home ? 0.5f : last_y;
+        Damp(x, vx, tx, home ? 1.4f : 0.45f, dt);
+        Damp(y, vy, ty, home ? 1.4f : 0.45f, dt);
+        Damp(lx, lvx, last_x, 0.07f, dt);
+        Damp(ly, lvy, last_y, 0.07f, dt);
+        lamp += ((inside ? 1.f : 0.f) - lamp) * (1 - std::exp(-dt * (inside ? 5.f : 3.f)));
+
+        Gfx::Sky sky{x, y, lx, ly, lamp};
+        // Opening: the sky comes out of the dark with the moon settling from above, then the
+        // interface fades in and grows to its size. Closing: the same backwards, faster.
+        const float open_sky = std::clamp(float(now) / 1.4f, 0.f, 1.f);
+        const float open_ui = EaseOut((float(now) - 0.55f) / 0.75f);
+        const float out = closing_at < 0 ? 0 : std::clamp(float(now - closing_at) / CLOSE_TIME, 0.f, 1.f);
+        sky.reveal = open_sky * (1 - out);
+        sky.ui_opacity = open_ui * (1 - EaseOut(out * 1.6f));
+        sky.ui_scale = (0.96f + 0.04f * open_ui) * (1 - 0.03f * EaseOut(out));
+        sky.ui_shift = (1 - open_ui) * 14;
+        return sky;
+    }
+    static constexpr float CLOSE_TIME = 0.45f;
+};
+
+// The window itself opens and closes: it fades in while rising into place and fades out while
+// sinking a little. Windows' own open and close transitions are turned off so they do not mix.
+struct WindowFx {
+    static constexpr float OPEN_TIME = 0.45f, RISE = 22, SINK = 12;  // seconds, DIPs
+    HWND hwnd = nullptr;
+    float scale = 1;
+    int x = 0, y = 0;  // where the window belongs
+    bool opening = true, moves = true;
+
+    void Prepare(HWND window, float dpi_scale) {
+        hwnd = window, scale = dpi_scale;
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, GetWindowLongPtrW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+        SetLayeredWindowAttributes(hwnd, 0, 0, LWA_ALPHA);
+        BOOL off = TRUE;
+        DwmSetWindowAttribute(hwnd, 3 /* DWMWA_TRANSITIONS_FORCEDISABLED */, &off, sizeof(off));
+        Remember();
+    }
+    void Remember() {
+        RECT r{};
+        GetWindowRect(hwnd, &r);
+        x = r.left, y = r.top;
+        moves = !IsZoomed(hwnd);  // a maximized window only fades
+    }
+    void Set(float alpha, float dy) {
+        SetLayeredWindowAttributes(hwnd, 0, BYTE(std::clamp(alpha, 0.f, 1.f) * 255 + 0.5f), LWA_ALPHA);
+        if (moves)
+            SetWindowPos(hwnd, nullptr, x, y + int(std::lround(dy * scale)), 0, 0,
+                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+    void Step(double now, double closing_at) {
+        if (closing_at >= 0) {
+            const float t = std::clamp(float(now - closing_at) / Motion::CLOSE_TIME, 0.f, 1.f);
+            Set(1 - t * t, SINK * EaseOut(t));
+        } else if (opening) {
+            const float t = std::clamp(float(now) / OPEN_TIME, 0.f, 1.f);
+            Set(EaseOut(t * 1.3f), RISE * (1 - EaseOut(t)));
+            opening = t < 1;
+        }
+    }
+};
 
 void SetTitleBar(HWND hwnd) {
     BOOL dark = TRUE;
@@ -77,6 +176,8 @@ int RunWindow() {
     glfwSetWindowUserPointer(win.glfw, &win);
     HWND hwnd = glfwGetWin32Window(win.glfw);
     SetTitleBar(hwnd);
+    WindowFx fx;
+    fx.Prepare(hwnd, 1);
     if (HICON icon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1))) {
         SendMessageW(hwnd, WM_SETICON, ICON_BIG, LPARAM(icon));
         SendMessageW(hwnd, WM_SETICON, ICON_SMALL, LPARAM(icon));
@@ -84,6 +185,7 @@ int RunWindow() {
     float sx = 1, sy = 1;
     glfwGetWindowContentScale(win.glfw, &sx, &sy);
     win.scale = sx;
+    fx.scale = sx;
     glfwSetWindowSizeLimits(win.glfw, int(1040 * sx), int(680 * sx), GLFW_DONT_CARE, GLFW_DONT_CARE);
     int fw, fh;
     glfwGetFramebufferSize(win.glfw, &fw, &fh);
@@ -120,6 +222,10 @@ int RunWindow() {
         if (!entered) Of(w)->pending.x = Of(w)->pending.y = -1;
     });
     glfwSetWindowContentScaleCallback(win.glfw, [](GLFWwindow* w, float x, float) { Of(w)->scale = x; });
+    glfwSetWindowCloseCallback(win.glfw, [](GLFWwindow* w) {
+        Of(w)->close_requested = true;
+        glfwSetWindowShouldClose(w, GLFW_FALSE);  // closed by the loop once the animation ends
+    });
 
     Launcher launcher(win.ui);
     launcher.on_language = [] {};
@@ -128,19 +234,24 @@ int RunWindow() {
     Cursor shown = Cursor::Arrow;
 
     // Development: BB_LAUNCHER_SHOT=file.png renders BB_LAUNCHER_PAGE with the mouse at
-    // BB_LAUNCHER_MOUSE=x,y (DIPs), saves the frame and closes.
+    // BB_LAUNCHER_MOUSE=x,y (DIPs), saves the frame at BB_LAUNCHER_SHOT_AT seconds (2.5) and closes.
     const std::string shot = Env("BB_LAUNCHER_SHOT");
     if (!Env("BB_LAUNCHER_PAGE").empty()) launcher.Open(Env("BB_LAUNCHER_PAGE"));
     float shot_x = -1, shot_y = -1;
     std::sscanf(Env("BB_LAUNCHER_MOUSE").c_str(), "%f,%f", &shot_x, &shot_y);
     int shot_state = 0;
+    const double shot_at = Env("BB_LAUNCHER_SHOT_AT").empty() ? 2.5 : std::atof(Env("BB_LAUNCHER_SHOT_AT").c_str());
+    fx.Remember();  // where Windows placed it
     glfwShowWindow(win.glfw);
     const auto start = std::chrono::steady_clock::now();
-    double last = 0;
+    double last = 0, closing_at = -1;
+    Motion motion;
+    fx.Set(0, WindowFx::RISE);  // shown transparent and a little low, then rises into place
     while (!glfwWindowShouldClose(win.glfw)) {
         const bool iconified = glfwGetWindowAttrib(win.glfw, GLFW_ICONIFIED);
         const bool focused = glfwGetWindowAttrib(win.glfw, GLFW_FOCUSED);
         if (iconified) {
+            if (win.close_requested || launcher.WantsClose()) break;  // nothing to animate
             glfwWaitEventsTimeout(0.25);
             continue;
         }
@@ -169,20 +280,25 @@ int RunWindow() {
         std::copy(down, down + 5, win.pending.down);
 
         if (!shot.empty()) in.x = shot_x, in.y = shot_y, in.pressed[0] = in.down[0] = false;
+        if ((win.close_requested || launcher.WantsClose()) && closing_at < 0) {
+            closing_at = now;
+            if (!fx.opening) fx.Remember();  // it may have been moved since it opened
+        }
         win.ui.BeginFrame();
-        win.gfx.BeginFrame(float(now), in.x / std::max(1.f, win.gfx.Width()), 1 - in.y / std::max(1.f, win.gfx.Height()),
+        win.gfx.BeginFrame(float(now), motion.Step(in, win.gfx.Width(), win.gfx.Height(), now, in.dt, closing_at),
                            launcher.ArtLayer());
         launcher.Frame();
         win.ui.EndFrame();
         win.gfx.EndFrame();
+        fx.Step(now, closing_at);
+        if (closing_at >= 0 && now - closing_at >= Motion::CLOSE_TIME) glfwSetWindowShouldClose(win.glfw, GLFW_TRUE);
         if (win.ui.cursor != shown) {
             shown = win.ui.cursor;
             glfwSetCursor(win.glfw, shown == Cursor::Hand ? hand : shown == Cursor::Text ? ibeam : nullptr);
         }
-        if (launcher.WantsClose()) glfwSetWindowShouldClose(win.glfw, GLFW_TRUE);
         if (!shot.empty()) {
             if (shot_state == 1) glfwSetWindowShouldClose(win.glfw, GLFW_TRUE);
-            if (shot_state == 0 && now > 2.5) win.gfx.shot = PathFrom(shot), shot_state = 1;
+            if (shot_state == 0 && now > shot_at) win.gfx.shot = PathFrom(shot), shot_state = 1;
         }
     }
     launcher.Closing();

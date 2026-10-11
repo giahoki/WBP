@@ -57,7 +57,8 @@ MINGW*|MSYS*)
         if [[ -f pgo/wbp.profdata ]]; then pgo=use; else pgo=off; fi
     fi
     mkdir -p pgo
-    # --launcher: only Bloodborne.exe (the game runtime stays as it was built).
+    # --launcher: only Bloodborne.exe (the game runtime stays as it was built);
+    # --game: only the game runtime (the launcher stays as it was built).
     if [[ ${1:-} != --launcher ]]; then
     third_party_check
     apply_fsr_patches
@@ -71,6 +72,7 @@ MINGW*|MSYS*)
     cp out/gpu/wbp-game.exe out/gpu/bb-gpu-capabilities.exe out/gpu/bb-play.exe out/
     echo "Built $PWD/out/wbp-game.exe"
     fi
+    [[ ${1:-} == --game ]] && exit 0
     # The launcher and the game preparation (Bloodborne.exe, launcher/CMakeLists.txt).
     cmake -S launcher -B out/launcher -G Ninja -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ >/dev/null

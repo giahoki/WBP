@@ -447,8 +447,10 @@ void Launcher::Frame() {
         while (log_.size() > MAX_LOG) log_.pop_front();
     }
     if (dirty_ && !ui_.in.down[0] && ui_.in.time - dirty_since_ > 0.25) Save();
-    mouse_sx_ += (ui_.in.x / std::max(1.f, ui_.g.Width()) - mouse_sx_) * 0.03f;
-    mouse_sy_ += (1 - ui_.in.y / std::max(1.f, ui_.g.Height()) - mouse_sy_) * 0.03f;
+    if (ui_.in.x >= 0) {  // outside the window the art keeps its place
+        mouse_sx_ += (ui_.in.x / std::max(1.f, ui_.g.Width()) - mouse_sx_) * 0.03f;
+        mouse_sy_ += (1 - ui_.in.y / std::max(1.f, ui_.g.Height()) - mouse_sy_) * 0.03f;
+    }
     // Q and E switch the tabs, as L1 and R1 do in the game's menu.
     if (!ui_.Busy())
         for (const KeyEvent& k : ui_.in.keys)
@@ -940,6 +942,11 @@ float Launcher::GraphicsPage(float x, float y, float w) {
     f.Section(T("Detail", "Детализация"));
     IniChoice(f, "model_lod", T("Model detail (LOD)", "Детализация моделей"), LODS,
               T("A game patch (game version 1.09).", "Патч игры (версия 1.09)."));
+    IniChoice(f, "shadow_quality", T("Shadow resolution", "Разрешение теней"), SHADOWS,
+              T("Sun shadow maps. Low draws four times fewer shadow pixels: helps weak GPUs (GTX 1650 and the like), "
+                "shadow edges get softer. A game patch (1.09).",
+                "Карты теней от солнца. «Низкое» рисует в 4 раза меньше пикселей теней: помогает слабым видеокартам "
+                "(GTX 1650 и подобным), края теней мягче. Патч игры (1.09)."));
     IniFlag(f, "show_fps", T("Show the FPS counter", "Показывать FPS"));
     return f.y;
 }

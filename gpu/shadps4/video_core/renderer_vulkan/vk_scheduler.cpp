@@ -62,6 +62,7 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
     EndRendering();
     is_rendering = true;
     render_state = new_state;
+    BbStats::render_passes.fetch_add(1, std::memory_order_relaxed);
 
     std::array<vk::RenderingAttachmentInfo, 8> color_attachments;
     for (u32 i = 0; i < render_state.num_color_attachments; ++i) {
@@ -324,29 +325,36 @@ void Scheduler::Flush() {
     Flush(info);
 }
 
-void Scheduler::Finish() {
+void Scheduler::Finish(std::source_location where) {
     // When finishing, we need to wait for the submission to have executed on the device.
     const u64 presubmit_tick = CurrentTick();
     SubmitInfo info{};
     SubmitExecution(info);
-    Wait(presubmit_tick);
+    Wait(presubmit_tick, where);
 }
 
-void Scheduler::WaitSubmitted() {
+void Scheduler::WaitSubmitted(std::source_location where) {
     const u64 tick = CurrentTick();
     if (tick > 1) {
-        Wait(tick - 1);
+        Wait(tick - 1, where);
     }
 }
 
-void Scheduler::Wait(u64 tick) {
+void Scheduler::Wait(u64 tick, std::source_location where) {
     if (tick >= work_semaphore.CurrentTick()) {
         // Make sure we are not waiting for the current tick without signalling
         SubmitInfo info{};
         Flush(info);
     }
-    BbStats::WaitTimer timer{BbStats::tick_wait_ns};
-    work_semaphore.Wait(tick);
+    const auto start = std::chrono::steady_clock::now();
+    {
+        BbStats::WaitTimer timer{BbStats::tick_wait_ns};
+        work_semaphore.Wait(tick);
+    }
+    BbStats::NoteTickWait(where.file_name(), where.line(),
+                          std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::steady_clock::now() - start)
+                              .count());
 }
 
 void Scheduler::PopPendingOperations() {

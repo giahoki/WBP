@@ -844,6 +844,9 @@ void Runtime::FlushBarriers() {
         return;
     }
 
+    BbStats::barrier_batches.fetch_add(1, std::memory_order_relaxed);
+    BbStats::memory_barriers.fetch_add(dep_info.memoryBarrierCount, std::memory_order_relaxed);
+    BbStats::image_barriers.fetch_add(dep_info.imageMemoryBarrierCount, std::memory_order_relaxed);
     scheduler.EndRendering();
     scheduler.Record([memory = memory_barrier, has_memory = dep_info.memoryBarrierCount != 0,
                       images = scheduler.RecordData(std::span<const vk::ImageMemoryBarrier2>(

@@ -357,6 +357,7 @@ void Menu() {
         }
         ImGui::EndCombo();
     }
+    Checkbox("Низкое разрешение теней (1024, быстрее)", s.low_shadows);
     for (int e = 0; e < BbSettings::EffectCount; ++e) {
         Checkbox(BbSettings::Effects[e].label, s.effects[e]);
     }
@@ -368,6 +369,7 @@ void Menu() {
 
     bool restart = s.object_motion != s.startup_object_motion ||
                    s.model_lod != s.startup_model_lod ||
+                   s.low_shadows != s.startup_low_shadows ||
                    s.live_resolution != s.startup_live_resolution ||
                    BbSettings::ResolutionNeedsRestart();
     for (int e = 0; e < BbSettings::EffectCount; ++e) {

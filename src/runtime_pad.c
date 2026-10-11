@@ -549,6 +549,7 @@ static void sample(PadData *d) {
     read_inject();
     replay_sample(d);
     d->buttons|=injected.buttons;
+    if (bbgpu_bench_press()) d->buttons|=BTN_CROSS;
     if (injected.touch_side>=0) touch_click(d,injected.touch_side);
     else if ((d->buttons & BTN_TOUCHPAD) && !d->touch_count) touch_click(d,0);
     if (injected.buttons & BTN_L2) d->l2=255;

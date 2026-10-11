@@ -7,6 +7,7 @@
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace BbSettings {
 
@@ -60,6 +61,8 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         v.fsr4_invert_jitter = i != 0;
     } else if (key == "model_lod") {
         v.model_lod = std::clamp(i, -2, 2);
+    } else if (key == "shadow_quality") {
+        v.low_shadows = value == "low";
     } else if (key == "live_resolution") {
         v.live_resolution = value == "auto" ? -1 : std::clamp(i, 0, 1);
     } else if (key == "output_res") {
@@ -129,6 +132,7 @@ void Load() {
         v.startup_effects[e] = v.effects[e];
     }
     v.startup_model_lod = v.model_lod;
+    v.startup_low_shadows = v.low_shadows;
     v.startup_output_res = v.output_res;
     v.startup_live_resolution = v.live_resolution;
 }
@@ -182,15 +186,16 @@ bool ResolutionNeedsRestart() {
 
 void Save() {
     const auto& v = Get();
-    // The launcher's key bindings (key_<action>, read by runtime_pad.c) are kept as they are.
-    std::string kept;
+    // Keys the menu does not write (key bindings, input_mode, ...) are kept as they are: the
+    // old lines are appended to the new file for every key it does not contain.
+    std::vector<std::string> old_lines;
     if (FILE* old = std::fopen(Path(), "r")) {
         char line[512];
         while (std::fgets(line, sizeof(line), old)) {
-            if (std::strncmp(line, "key_", 4) == 0) {
-                kept += line;
-                if (kept.back() != '\n') kept += '\n';
-            }
+            std::string text = line;
+            if (text[0] == '#' || text.find('=') == std::string::npos) continue;
+            if (text.back() != '\n') text += '\n';
+            old_lines.push_back(std::move(text));
         }
         std::fclose(old);
     }
@@ -216,13 +221,31 @@ void Save() {
     for (int e = 0; e < EffectCount; ++e) {
         std::fprintf(file, "%s=%d\n", Effects[e].key, int(v.effects[e].load()));
     }
-    std::fprintf(file, "model_lod=%d\noutput_res=%dx%d\n", v.model_lod.load(),
-                 OutputWidths[v.output_res], OutputHeights[v.output_res]);
+    std::fprintf(file, "model_lod=%d\nshadow_quality=%s\noutput_res=%dx%d\n", v.model_lod.load(),
+                 v.low_shadows ? "low" : "high", OutputWidths[v.output_res],
+                 OutputHeights[v.output_res]);
     // Read by run.sh at start.
     std::fprintf(file, "live_resolution=%s\n", v.live_resolution < 0 ? "auto"
                                                   : v.live_resolution ? "1" : "0");
-    std::fputs(kept.c_str(), file);
     std::fclose(file);
+    std::vector<std::string> written;
+    if (FILE* now = std::fopen(Path(), "r")) {
+        char line[512];
+        while (std::fgets(line, sizeof(line), now)) {
+            if (const char* eq = std::strchr(line, '=')) written.emplace_back(line, eq - line);
+        }
+        std::fclose(now);
+    }
+    if (FILE* tail = std::fopen(Path(), "a")) {
+        for (const std::string& line : old_lines) {
+            std::string key = line.substr(0, line.find('='));
+            if (std::find(written.begin(), written.end(), key) == written.end()) {
+                std::fputs(line.c_str(), tail);
+                written.push_back(std::move(key));
+            }
+        }
+        std::fclose(tail);
+    }
 }
 
 float PresetScale(int preset) {

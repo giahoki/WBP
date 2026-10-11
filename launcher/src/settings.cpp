@@ -60,6 +60,8 @@ const std::vector<Choice> INPUT_MODES = {
     {"emulation", {"Gamepad emulation", "Эмуляция геймпада"}}};
 const std::vector<Choice> LODS = {{"0", {"As in the game", "Как в игре"}}, {"-2", {"Highest (−2)", "Максимальная (−2)"}},
                                   {"1", {"Lower (1)", "Ниже (1)"}}, {"2", {"Lowest (2)", "Минимальная (2)"}}};
+const std::vector<Choice> SHADOWS = {{"high", {"As in the game (2048)", "Как в игре (2048)"}},
+                                     {"low", {"Low (1024, faster)", "Низкое (1024, быстрее)"}}};
 const std::vector<Choice> FPS_MODES = {{"uncap", {"Unlocked (frame-time patch)", "Без ограничения (патч)"}},
                                        {"60", {"60 FPS"}}, {"90", {"90 FPS"}},
                                        {"30", {"30 FPS (as on PS4)", "30 FPS (как на PS4)"}}};
@@ -152,6 +154,7 @@ const std::map<std::string, std::string>& Ini::Defaults() {
         std::map<std::string, std::string> d = {
             {"upscaler", "fsr3"}, {"preset", "1"}, {"sharpen", "1"}, {"sharpness", "0.50"},
             {"object_motion", "1"}, {"show_fps", "1"}, {"output_res", "1920x1080"}, {"model_lod", "0"},
+            {"shadow_quality", "high"},
             {"live_resolution", "auto"}, {"mouse_sensitivity", "1.00"}, {"key_icons", "1"},
             {"input_mode", "native"}};
         for (auto* list : {&EFFECTS, &EXTRAS, &CHEATS, &TWEAKS})

@@ -136,4 +136,33 @@ inline std::atomic<std::uint64_t> gpu_signal_faults{0};
 /// Protection changes: calls and pages, those removing write access (TLB shootdowns) apart.
 inline std::atomic<std::uint64_t> protect_calls{0}, protect_pages{0}, protect_revoke_calls{0},
     protect_revoke_pages{0};
+/// Recorded render passes and barrier batches (memory part, image barriers) for BB_BENCH.
+inline std::atomic<std::uint64_t> render_passes{0}, barrier_batches{0}, memory_barriers{0},
+    image_barriers{0};
+/// GPU tick waits per call site (Scheduler::Wait): file and line of the caller, wall time.
+struct TickWaitSite {
+    std::atomic<const char*> file{nullptr};
+    std::atomic<std::uint32_t> line{0};
+    std::atomic<std::uint64_t> ns{0}, count{0};
+};
+inline TickWaitSite tick_wait_sites[64];
+inline void NoteTickWait(const char* file, std::uint32_t line, std::uint64_t ns) {
+    for (auto& site : tick_wait_sites) {
+        const char* known = site.file.load(std::memory_order_acquire);
+        if (!known) {
+            const char* expected = nullptr;
+            if (site.file.compare_exchange_strong(expected, file)) {
+                site.line.store(line, std::memory_order_release);
+                known = file;
+            } else {
+                known = expected;
+            }
+        }
+        if (known == file && site.line.load(std::memory_order_acquire) == line) {
+            site.ns.fetch_add(ns, std::memory_order_relaxed);
+            site.count.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+    }
+}
 } // namespace BbStats

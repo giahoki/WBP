@@ -10,6 +10,8 @@ wbp.ini
 mods.json
 patches.json
 *.log
+wbp_samples.txt
+wbp_bench.txt
 # Third-party patch files go into patches/ too; only the community file is part of the repository.
 /patches/*
 !/patches/Bloodborne.xml

@@ -319,6 +319,12 @@
             <Line Type="bytes" Address="0x0216fc09" Value="b9FEFFFFFF90"/>
         </PatchList>
     </Metadata>
+    <Metadata Title="Bloodborne" Name="Shadow Resolution 1024 (perf increase)" Note="Sun shadow cascades 1024x1024 instead of 2048x2048 (the size the game's own debug menu offers). Four times fewer shadow pixels: faster on weak GPUs, blurrier shadow edges. mov dword [rsp+0A8h/0ACh], 800h at 0x2697b22 (the main scene's render config, read by 0x26C39F0)." Author="WBP" PatchVer="1.0" AppVer="01.09" AppElf="eboot.bin" isEnabled="false">
+        <PatchList>
+            <Line Type="bytes" Address="0x02697b29" Value="00040000"/>
+            <Line Type="bytes" Address="0x02697b34" Value="00040000"/>
+        </PatchList>
+    </Metadata>
     <Metadata Title="Bloodborne" Name="Increased Graphics Heap Sizes" Author="auser1337" Note="This patch increases the graphic heap size, \nallowing more memory to be used. \nMUST BE USED WITH INCREASED DMEM. \nkeep in mind this is already in resolution patches above 1080p,\nbut some users requested it seperately. " PatchVer="1.0" AppVer="01.09" AppElf="eboot.bin" isEnabled="false">
         <PatchList>
             <Line Type="bytes" Address="0x04b36dda" Value="00f7"/>

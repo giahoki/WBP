@@ -68,7 +68,7 @@ public:
     float ButtonWidth(const std::string& label, bool small = false);
     bool Check(std::string_view id, const std::string& label, bool& value, float x, float y, float width, float* height = nullptr);
     bool Combo(std::string_view id, const Rect& r, const Options& options, std::string& value);
-    // The game's option value: "<  value  >"; the arrows, the wheel and right click cycle,
+    // The game's option value: "<  value  >"; the arrows and right click cycle,
     // a click on the value opens the list.
     bool Cycle(std::string_view id, const Rect& r, const Options& options, std::string& value, bool row_hovered);
     // The text for the description panel (the hovered or focused setting).
@@ -92,7 +92,10 @@ private:
     uint64_t active_ = 0, focus_ = 0, capture_ = 0, popup_ = 0;
     bool capture_armed_ = false;
     std::string edit_text_;
-    size_t caret_ = 0;
+    size_t caret_ = 0, anchor_ = 0;  // the selection runs from anchor_ to caret_
+    float entry_shift_ = 0;          // how far the focused field's text is scrolled left
+    bool selecting_ = false;         // the mouse is dragging a selection
+    double last_click_ = -10;
     std::map<uint64_t, float> anim_;
     std::vector<Rect> clips_;
     // The open drop-down: drawn by EndFrame.

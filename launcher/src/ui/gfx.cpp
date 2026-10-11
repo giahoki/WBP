@@ -9,11 +9,13 @@
 
 namespace {
 
-// The background: a Blood Moon low over the window, self-warped smoke drifting across it, low
-// mist, a lantern glow at the cursor and film grain. Over the cover art only smoke, a blood
+// The background: a Blood Moon low over the window (a lit sphere), self-warped smoke drifting
+// across it, low mist, a lantern glow at the cursor and film grain. Over the cover art only smoke, a blood
 // tint and a vignette.
 const char* SKY_HLSL = R"(
-cbuffer Frame : register(b0) { float2 uRes; float uTime; float uArt; float2 uMouse; float2 pad; };
+cbuffer Frame : register(b0) {
+    float2 uRes; float uTime; float uArt; float2 uMouse; float2 uLamp; float uLampA; float uReveal; float2 pad;
+};
 float4 vs(uint id : SV_VertexID) : SV_Position {
     float2 p = float2(id == 2 ? 3.0 : -1.0, id == 1 ? 3.0 : -1.0);  // clockwise: not culled
     return float4(p, 0.0, 1.0);
@@ -40,33 +42,55 @@ float4 ps(float4 pos : SV_Position) : SV_Target {
     float asp = uRes.x / uRes.y;
     float2 p = float2(uv.x * asp, uv.y);
     float t = uTime;
-    float2 par = (uMouse - 0.5) * float2(0.025, 0.012);
-    // The Blood Moon, large and low, with a corona bleeding into the smoke.
-    float2 mc = float2(asp * 0.5, 1.02) + par * 0.4;
+    // Parallax by depth, against the cursor: the far moon barely shifts, the smoke and the
+    // mist in front of it shift more. uMouse is already eased on the CPU.
+    float2 o = uMouse - 0.5;
+    float reveal = ss(0.0, 1.0, uReveal);
+    // The Blood Moon as in the game: huge, glowing from within and seen through a red haze, not
+    // an astronomical body. A soft sphere (wrapped light, a glowing core, a dark bleeding limb),
+    // blurred stains drifting slowly over it, a soft edge and a wide bloom.
+    float2 mc = float2(asp * 0.5, 1.02) - o * float2(0.010, 0.005) + float2(0.0, (1.0 - reveal) * 0.22);
     float d = length(p - mc);
     float r = 0.27;
-    float disc = ss(r, r - 0.006, d);
-    float2 mp = (p - mc) / r;
-    float surface = fbm(mp * 3.2 + 7.0) * 0.7 + fbm(mp * 9.0 - 3.0) * 0.3;
-    float limb = sqrt(saturate(1.0 - dot(mp, mp)));
-    float3 moon = lerp(float3(0.42, 0.05, 0.04), float3(0.78, 0.20, 0.10), ss(0.35, 0.75, surface));
-    moon *= 0.55 + 0.45 * limb;
-    moon += float3(0.25, 0.08, 0.03) * pow(limb, 6.0) * 0.4;
-    float corona = exp(-max(d - r, 0.0) * 4.5) * 0.55 + exp(-max(d - r, 0.0) * 16.0) * 0.6;
+    float disc = ss(r + 0.0015, r - 0.0045, d);
+    float2 L2 = normalize(float2(-0.5, 0.35));
+    float3 moon = 0;
+    if (d < r + 0.004) {
+        float2 mp = (p - mc) / r;
+        float3 n = float3(mp, sqrt(saturate(1.0 - dot(mp, mp))));
+        // the stains sit on the sphere: squeezed towards the limb, turning very slowly
+        float2 q = float2(atan2(n.x, n.z) + t * 0.006, asin(clamp(n.y, -0.999, 0.999)));
+        float2 w = float2(fbm(q * 1.3 + t * 0.01), fbm(q * 1.3 + 4.7 - t * 0.008));
+        float stain = ss(0.38, 0.72, fbm(q * 1.6 + w * 1.2 + 2.0));
+        float veil = fbm(q * 4.0 + w * 2.0 - 1.3);
+        // wrapped light from the upper left: no hard terminator, just a rounder, darker side
+        float lit = saturate(dot(n, normalize(float3(L2 * 0.55, 0.85))) * 0.65 + 0.35);
+        float core = pow(n.z, 1.6);
+        float3 hot = float3(1.0, 0.40, 0.25), deep = float3(0.30, 0.02, 0.025);
+        moon = lerp(hot, deep, saturate(stain * 0.75 + (1.0 - lit) * 0.7));
+        moon *= (0.30 + 0.70 * pow(core, 0.7)) * lerp(0.78, 1.12, veil) * (0.5 + 0.7 * lit);
+        moon += float3(0.35, 0.10, 0.07) * pow(core, 5.0) * lit * 0.45;  // the inner glow
+        moon += float3(0.50, 0.04, 0.03) * pow(1.0 - n.z, 3.0) * lit * 0.45;  // blood bleeding at the lit limb
+    }
+    float dd = max(d - r, 0.0);
+    float side = 0.8 + 0.25 * dot((p - mc) / max(d, 1e-4), L2);
+    float corona = (exp(-dd * 3.2) * 0.6 + exp(-dd * 11.0) * 0.75 + exp(-dd * 40.0) * 0.35) * side;
     float3 col = lerp(float3(0.010, 0.006, 0.010), float3(0.045, 0.012, 0.016), ss(1.0, 0.0, uv.y));
     col += float3(0.50, 0.06, 0.05) * corona * 0.55;
     col = lerp(col, moon, disc);
     // Smoke in front of the moon, lit red where it crosses the corona.
-    float s1 = smoke(p * 1.6 + float2(t * 0.01, 0.0), t);
+    float2 ps1 = p - o * float2(0.05, 0.025);
+    float s1 = smoke(ps1 * 1.6 + float2(t * 0.01, 0.0), t);
     float dense = ss(0.42, 0.85, s1);
     float3 smokeCol = float3(0.035, 0.022, 0.026) + float3(0.55, 0.08, 0.05) * corona * 0.6 + float3(0.25, 0.04, 0.03) * disc * 0.5;
     col = lerp(col, smokeCol, dense * 0.85);
-    // Low mist and a darker band at the bottom.
-    float s2 = smoke(p * float2(2.4, 5.0) - float2(t * 0.03, 0.0), t * 1.3);
+    // Low mist and a darker band at the bottom, the nearest layer.
+    float2 ps2 = p - o * float2(0.10, 0.04);
+    float s2 = smoke(ps2 * float2(2.4, 5.0) - float2(t * 0.03, 0.0), t * 1.3);
     col = lerp(col, float3(0.09, 0.05, 0.055), ss(0.45, 0.9, s2) * (1.0 - ss(0.0, 0.42, uv.y)) * 0.7);
-    // A lantern: warm light around the cursor.
-    float2 m = float2(uMouse.x * asp, uMouse.y);
-    float lantern = exp(-length(p - m) * 3.2);
+    // A lantern: warm light around the cursor, fading out when the cursor leaves.
+    float2 m = float2(uLamp.x * asp, uLamp.y);
+    float lantern = exp(-length(p - m) * 3.2) * uLampA;
     col += float3(0.20, 0.09, 0.03) * lantern * 0.35 * (0.9 + 0.1 * sin(t * 7.0 + sin(t * 3.1)));
     // Vignette and grain.
     float vig = ss(1.35, 0.2, length((uv - float2(0.5, 0.55)) * float2(asp * 0.7, 1.0)));
@@ -75,18 +99,18 @@ float4 ps(float4 pos : SV_Position) : SV_Target {
         // Over the cover art: smoke, a blood tint and a heavy vignette.
         float a = dense * 0.55 + ss(0.45, 0.9, s2) * (1.0 - ss(0.0, 0.5, uv.y)) * 0.5;
         float shade = (1.0 - vig) * 0.9 + (1.0 - ss(0.0, 0.4, uv.y)) * 0.4 + 0.18;
-        float alpha = min(saturate(a + shade), 0.94);
-        float3 c = lerp(float3(0.0, 0.0, 0.0), float3(0.22, 0.03, 0.035), a / max(alpha, 1e-3));
+        float alpha = lerp(1.0, min(saturate(a + shade), 0.94), reveal);
+        float3 c = lerp(float3(0.0, 0.0, 0.0), float3(0.22, 0.03, 0.035), a / max(alpha, 1e-3)) * reveal;
         return float4(c * alpha + grain * 0.012, alpha);
     }
-    col *= lerp(0.2, 1.0, vig);
+    col *= lerp(0.2, 1.0, vig) * reveal;
     col += grain * 0.012;
     return float4(col, 1.0);
 }
 )";
 
 struct Constants {
-    float res[2], time, art, mouse[2], pad[2];
+    float res[2], time, art, mouse[2], lamp[2], lamp_alpha, reveal, pad[2];
 };
 
 std::string Key(const TextStyle& s) {
@@ -119,11 +143,13 @@ bool Gfx::Init(HWND window, int width, int height, float dpi_scale) {
     desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     desc.SampleDesc.Count = 1;
     desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    desc.BufferCount = 2;
-    desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    // The window is layered (it fades in and out as a whole): only the bit-block transfer model
+    // draws into the window's own surface, which the layered window's opacity applies to.
+    desc.BufferCount = 1;
+    desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
     desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
     if (FAILED(factory->CreateSwapChainForHwnd(device_.Get(), window, &desc, nullptr, nullptr, &swapchain_))) {
-        desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD, desc.BufferCount = 1;
+        desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD, desc.BufferCount = 2;
         if (FAILED(factory->CreateSwapChainForHwnd(device_.Get(), window, &desc, nullptr, nullptr, &swapchain_))) return false;
     }
     factory->MakeWindowAssociation(window, DXGI_MWA_NO_ALT_ENTER);
@@ -197,8 +223,8 @@ void Gfx::Resize(int width, int height, float dpi_scale) {
     CreateTargets();
 }
 
-void Gfx::BeginFrame(float time, float mouse_x, float mouse_y, const std::function<void()>& under) {
-    const float clear[4] = {0.027f, 0.02f, 0.04f, 1};
+void Gfx::BeginFrame(float time, const Sky& sky, const std::function<void()>& under) {
+    const float clear[4] = {0.027f * sky.reveal, 0.02f * sky.reveal, 0.04f * sky.reveal, 1};
     context_->ClearRenderTargetView(rtv_.Get(), clear);
     if (under) {
         dc_->BeginDraw();
@@ -207,7 +233,8 @@ void Gfx::BeginFrame(float time, float mouse_x, float mouse_y, const std::functi
         dc_->EndDraw();
     }
     if (sky_ok_) {
-        Constants c{{float(width_), float(height_)}, time, under ? 1.f : 0.f, {mouse_x, mouse_y}, {0, 0}};
+        Constants c{{float(width_), float(height_)}, time, under ? 1.f : 0.f, {sky.mouse_x, sky.mouse_y},
+                    {sky.lamp_x, sky.lamp_y}, sky.lamp, sky.reveal, {0, 0}};
         context_->UpdateSubresource(constants_.Get(), 0, nullptr, &c, 0, 0);
         D3D11_VIEWPORT vp{0, 0, float(width_), float(height_), 0, 1};
         context_->OMSetRenderTargets(1, rtv_.GetAddressOf(), nullptr);
@@ -224,11 +251,20 @@ void Gfx::BeginFrame(float time, float mouse_x, float mouse_y, const std::functi
         context_->OMSetRenderTargets(0, nullptr, nullptr);
     }
     dc_->BeginDraw();
-    dc_->SetTransform(D2D1::Matrix3x2F::Identity());
+    // Opening and closing: the interface fades in a layer and grows from the centre.
+    const float w = Width(), h = Height();
+    dc_->SetTransform(D2D1::Matrix3x2F::Scale(sky.ui_scale, sky.ui_scale, D2D1::Point2F(w / 2, h / 2)) *
+                      D2D1::Matrix3x2F::Translation(0, sky.ui_shift));
+    faded_ = sky.ui_opacity < 0.999f;
+    if (faded_)
+        dc_->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+                                              D2D1::IdentityMatrix(), std::max(0.f, sky.ui_opacity)),
+                       nullptr);
 }
 
 void Gfx::EndFrame() {
     while (clips_ > 0) PopClip();
+    if (faded_) dc_->PopLayer(), faded_ = false;
     dc_->EndDraw();
     if (!shot.empty()) {
         ComPtr<ID3D11Texture2D> back, staging;

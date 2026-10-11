@@ -62,9 +62,17 @@ public:
     float Width() const { return width_ / scale_; }   // DIPs
     float Height() const { return height_ / scale_; }
 
+    // What the sky and the interface look like this frame (positions 0..1, y up).
+    struct Sky {
+        float mouse_x = 0.5f, mouse_y = 0.5f;  // eased cursor for the parallax
+        float lamp_x = 0.5f, lamp_y = 0.5f;    // the lantern, close behind the cursor
+        float lamp = 0;                        // lantern strength (0 while the cursor is outside)
+        float reveal = 1;                      // 0 = black, the moon above the window; 1 = in place
+        float ui_opacity = 1, ui_scale = 1, ui_shift = 0;  // the interface while opening and closing
+    };
     // Background: the sky shader. With `under` (the cover art, drawn with Direct2D first) the
     // shader only adds fog, a crimson tint and a vignette over it.
-    void BeginFrame(float time, float mouse_x, float mouse_y, const std::function<void()>& under = {});
+    void BeginFrame(float time, const Sky& sky, const std::function<void()>& under = {});
     void EndFrame();
     fs::path shot;  // development: the next frame is also saved as this PNG
 
@@ -133,4 +141,5 @@ private:
     std::map<std::string, ComPtr<IDWriteTextLayout>> layouts_;
     std::map<std::wstring, ComPtr<ID2D1Bitmap>> images_;
     int clips_ = 0;
+    bool faded_ = false;  // the interface is drawn in an opacity layer this frame
 };

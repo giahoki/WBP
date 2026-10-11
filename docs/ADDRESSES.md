@@ -162,5 +162,6 @@ d-pad) and 266+ like the character's.
 |---|---|
 | Scene render size (startup resolution patch) | `0x2196A6B`, `0x2196A7A` (`launcher/src/prep/patches.cpp`) |
 | UI movie viewport size | `0x2358554`, `0x235855D` (`launcher/src/prep/patches.cpp`) |
+| Sun shadow cascade size (`shadow_quality=low`) | `mov dword [rsp+0A8h/0ACh], 800h` at `0x2697B22`/`0x2697B2D` (imm32 at `0x2697B29`, `0x2697B34`) in `sub_26979B0`: the main scene's render config `{w, h, shadow w, shadow h, …}` passed to `sub_26C39F0`, which calls `sub_12ABF20(this+0x1320, &shadow_size)` for the four cascades. The game's debug light editor (`sub_26CD2D0`, "Shadow Resolution", handler `0x26CDE90`) offers 1024/2048/4096 through the same call. Patch "Shadow Resolution 1024 (perf increase)" |
 | Key-guide icons redrawn for the keyboard | `dvdroot_ps4/menu/common.tpf.dcx`: `KG_*` (32×32 BC7), HUD atlas `MENU_Common_00091` (1024×512 BC7) at (661,123), (694,123), (726,123) (`launcher/src/prep/key_icons.cpp`) |
 | All community patches (FPS, effects, cheats) | `patches/Bloodborne.xml` |
