@@ -827,7 +827,7 @@ void Runtime::AccessBuffer(const VideoCore::Buffer* handle, u64 offset, u64 size
     memory_barrier.srcAccessMask |= src_access & WRITE_MASK;
 }
 
-void Runtime::FlushBarriers() {
+void Runtime::FlushBarriers(std::source_location where) {
     BeforeImageAccess();
     vk::DependencyInfo dep_info{};
 
@@ -845,6 +845,7 @@ void Runtime::FlushBarriers() {
     }
 
     BbStats::barrier_batches.fetch_add(1, std::memory_order_relaxed);
+    BbStats::NoteBarrierSite(where.file_name(), where.line());
     BbStats::memory_barriers.fetch_add(dep_info.memoryBarrierCount, std::memory_order_relaxed);
     BbStats::image_barriers.fetch_add(dep_info.imageMemoryBarrierCount, std::memory_order_relaxed);
     scheduler.EndRendering();

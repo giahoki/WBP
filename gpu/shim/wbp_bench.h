@@ -10,6 +10,8 @@
 namespace BbBench {
 /// Every guest flip (VideoOut).
 void OnFlip();
+/// Every image handed to the swapchain (present thread): spacing of the shown frames.
+void OnPresent();
 } // namespace BbBench
 
 extern "C" {

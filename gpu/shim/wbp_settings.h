@@ -56,6 +56,14 @@ inline constexpr int OutputDefault = 1; ///< 1920x1080, the game's own size
 
 struct Values {
     std::atomic<int> upscaler{UpscalerFsr3};
+    /// upscaler=auto (the default): DLSS when it is installed and the GPU runs it, otherwise
+    /// FSR 3.1. Saved back as "auto" until the player picks an upscaler in the menu.
+    std::atomic<bool> upscaler_auto{false};
+    /// FSR 3 frame generation: one interpolated frame between two game frames.
+    std::atomic<bool> frame_generation{false};
+    /// frame_generation_mode: the game's frame cap while it is on. false ("fixed"): 60 FPS,
+    /// 90 from 180 Hz; true ("half"): half the display refresh rate (82 at 165 Hz).
+    std::atomic<bool> frame_generation_half{false};
     std::atomic<int> preset{NativeAA};
     std::atomic<bool> sharpen{true};
     std::atomic<float> sharpness{0.3f};

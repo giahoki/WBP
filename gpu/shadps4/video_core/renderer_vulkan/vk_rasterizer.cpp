@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <tuple>
 #include <xxhash.h>
 #include "video_core/renderer_vulkan/ui_composition.h"
 #include "wbp_toggles.h"
@@ -16,6 +17,7 @@
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
+#include "video_core/renderer_vulkan/vk_indirect_guard.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_gpu_profiler.h"
@@ -266,7 +268,9 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
     // main camera (shadow passes bind the same layout with the light's camera).
     gbuffer_draw = camera_motion->Enabled() && std::popcount(key.mrt_mask) >= 5 && db_desc.first;
     if (gbuffer_draw) {
-        camera_motion->OnGBufferPass(db_desc.first);
+        const auto& vp = regs.viewports[0];
+        camera_motion->OnGBufferPass(db_desc.first, vp.xscale < 0.0f ? -1.0f : 1.0f,
+                                     vp.yscale < 0.0f ? -1.0f : 1.0f);
     }
     if (upscaler->Enabled() && cb_descs[0].first) {
         upscaler->OnColorTarget(cb_descs[0].first);
@@ -1165,7 +1169,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
         .vertex_sgpr_offset = vertex_sgpr_offset,
         .instance_sgpr_offset = instance_sgpr_offset,
     };
-    const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline(params);
+    const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline(params, nullptr, true);
     if (!pipeline) {
         return;
     }
@@ -1371,11 +1375,19 @@ void Rasterizer::DispatchIndirectRecord(const ComputePipeline* pipeline, VAddr a
     }
 
     scheduler.EndRendering();
+    // wbp: group counts checked on the GPU first (vk_indirect_guard.h); recorded before the
+    // pipeline's bindings, which the check's own pipeline would disturb.
+    vk::Buffer args = buffer->Handle();
+    u64 args_offset = base;
+    if (IndirectGuard::Enabled()) {
+        if (!indirect_guard) {
+            indirect_guard = std::make_unique<IndirectGuard>(instance, scheduler);
+        }
+        std::tie(args, args_offset) = indirect_guard->CheckArgs(*buffer, base);
+    }
     pipeline->BindResources(set_writes, push_data);
 
     const vk::Pipeline handle = pipeline->Handle();
-    const vk::Buffer args = buffer->Handle();
-    const u64 args_offset = base;
     scheduler.Record([=](vk::CommandBuffer cmdbuf) {
         cmdbuf.bindPipeline(vk::PipelineBindPoint::eCompute, handle);
         cmdbuf.dispatchIndirect(args, args_offset);
@@ -1533,6 +1545,7 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
     set_writes.clear();
     buffer_infos.clear();
     image_infos.clear();
+    pipeline_is_compute = pipeline->IsCompute();
     // wbp: G-buffer passes sample material textures for a scene rendered below the output
     // size; the temporal upscaler restores the detail of the output's mip level (FSR guide:
     // log2(render / output)). Shadows, post-processing and UI keep the guest's bias.
@@ -1636,7 +1649,7 @@ bool Rasterizer::BindResources(const Pipeline* pipeline) {
             draw_inputs.resolved = true;
         }
         bind_helper.Join();
-        needs_barrier |= task.barrier;
+        needs_barrier |= BbStats::BarrierReason(6, task.barrier);
         ++(task.completed == task.count ? helper_full
                                         : task.completed ? helper_partial : helper_serial);
         // Stages the helper left (an image needing work that records commands).
@@ -1797,7 +1810,7 @@ void Rasterizer::ResolveVertexBuffers(const GraphicsPipeline* pipeline,
         const u64 size = memory->ClampRangeSize(range.base_address, range.GetSize());
         std::tie(range.buffer, range.offset) =
             buffer_cache.ObtainBuffer(range.base_address, size, false);
-        needs_barrier |= runtime.IsBufferAccessed(range.buffer, range.offset, size);
+        needs_barrier |= BbStats::BarrierReason(0, runtime.IsBufferAccessed(range.buffer, range.offset, size));
     }
 
     // Bind vertex buffers
@@ -1855,7 +1868,7 @@ void Rasterizer::ResolveIndexBuffer(u32 index_offset) {
     const u32 index_buffer_size = regs.num_indices * index_size;
     const auto [buffer, offset] =
         buffer_cache.ObtainBuffer(index_address, index_buffer_size, false);
-    needs_barrier |= runtime.IsBufferAccessed(buffer, offset, index_buffer_size);
+    needs_barrier |= BbStats::BarrierReason(1, runtime.IsBufferAccessed(buffer, offset, index_buffer_size));
     index_bind = {buffer->Handle(), offset, index_type};
 }
 
@@ -2045,7 +2058,7 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, const PreparedStage* pre
             if (desc.buffer_type == Shader::BufferType::GdsBuffer) {
                 const auto* gds_buf = buffer_cache.GetGdsBuffer();
                 buffer_infos.emplace_back(gds_buf->Handle(), 0, gds_buf->SizeBytes());
-                needs_barrier |= runtime.IsBufferAccessed(gds_buf, 0, gds_buf->SizeBytes());
+                needs_barrier |= BbStats::BarrierReason(2, runtime.IsBufferAccessed(gds_buf, 0, gds_buf->SizeBytes()));
             } else if (desc.buffer_type == Shader::BufferType::Flatbuf) {
                 auto& vk_buffer = buffer_cache.GetStreamBuffer();
                 const u32 ubo_size = stage.FlatUserData().size() * sizeof(u32);
@@ -2140,7 +2153,7 @@ void Rasterizer::BindBuffers(const Shader::Info& stage, const PreparedStage* pre
                     // Raw storage-buffer writes can also make an aliased cached image stale.
                     texture_cache.InvalidateMemoryFromGPU(vsharp.base_address, size);
                 }
-                needs_barrier |= runtime.IsBufferAccessed(buffer, offset, size, desc.is_written);
+                needs_barrier |= BbStats::BarrierReason(3, runtime.IsBufferAccessed(buffer, offset, size, desc.is_written));
             }
         }
 
@@ -2477,12 +2490,42 @@ void Rasterizer::BindTextures(const Shader::Info& stage, const PreparedStage* pr
     BindSamplers(stage, prepared, binding, write_index);
 }
 
+// wbp: the PS4 build samples most scene textures with little or no anisotropic filtering.
+// Behind the temporal upscaler the output shows the detail of the output's mip level, and
+// surfaces seen at a grazing angle (stairs, floors, walls along the view) stay blurred.
+// Mipmapped linear samplers of graphics draws get BB_ANISO (16; 0 = the game's) times.
+void Rasterizer::ForceAnisotropy(AmdGpu::Sampler& sharp, bool is_depth) const {
+    static const int forced = [] {
+        const char* value = std::getenv("BB_ANISO");
+        return value ? std::atoi(value) : 16;
+    }();
+    if (forced <= 1 || is_depth || pipeline_is_compute ||
+        sharp.mip_filter == AmdGpu::MipFilter::None ||
+        (sharp.xy_min_filter != AmdGpu::Filter::Bilinear &&
+         sharp.xy_min_filter != AmdGpu::Filter::AnisoLinear)) {
+        return;
+    }
+    const auto ratio = forced >= 16 ? AmdGpu::AnisoRatio::Sixteen
+                       : forced >= 8 ? AmdGpu::AnisoRatio::Eight
+                       : forced >= 4 ? AmdGpu::AnisoRatio::Four
+                                     : AmdGpu::AnisoRatio::Two;
+    if (AmdGpu::IsAnisoFilter(sharp.xy_min_filter) && sharp.MaxAniso() >= forced) {
+        return;
+    }
+    sharp.xy_min_filter.Assign(AmdGpu::Filter::AnisoLinear);
+    if (sharp.xy_mag_filter == AmdGpu::Filter::Bilinear) {
+        sharp.xy_mag_filter.Assign(AmdGpu::Filter::AnisoLinear);
+    }
+    sharp.max_aniso.Assign(ratio);
+}
+
 void Rasterizer::BindSamplers(const Shader::Info& stage, const PreparedStage* prepared,
                               Shader::Backend::Bindings& binding, u32& write_index) {
     for (u32 sampler_index = 0; sampler_index < stage.samplers.size(); ++sampler_index) {
         const auto& sampler = stage.samplers[sampler_index];
         auto ssharp =
             prepared ? prepared->sampler_sharps[sampler_index] : sampler.GetSharp(stage);
+        ForceAnisotropy(ssharp, sampler.is_depth);
         const auto vk_sampler = texture_cache.GetSampler(
             ssharp, Regs().ta_bc_base, sampler.is_depth, sampler.is_depth ? 0.0f : sampler_lod_bias);
         image_infos.emplace_back(vk_sampler, VK_NULL_HANDLE, vk::ImageLayout::eGeneral);
@@ -2778,21 +2821,21 @@ RenderState Rasterizer::BeginRenderingFull(const GraphicsPipeline* pipeline) {
             ASSERT_MSG(!image->binding.force_general,
                        "Having image both as storage and render target is unsupported");
             runtime.FlushBarriers();
-            needs_barrier |=
+            needs_barrier |= BbStats::BarrierReason(4,
                 runtime.Transit(image,
                                 instance.IsAttachmentFeedbackLoopLayoutSupported()
                                     ? vk::ImageLayout::eAttachmentFeedbackLoopOptimalEXT
                                     : vk::ImageLayout::eGeneral,
                                 vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                                 vk::AccessFlagBits2::eColorAttachmentWrite |
-                                    vk::AccessFlagBits2::eColorAttachmentRead);
+                                    vk::AccessFlagBits2::eColorAttachmentRead));
             attachment_feedback_loop = true;
         } else {
-            needs_barrier |= runtime.Transit(image, vk::ImageLayout::eColorAttachmentOptimal,
+            needs_barrier |= BbStats::BarrierReason(4, runtime.Transit(image, vk::ImageLayout::eColorAttachmentOptimal,
                                              vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                                              vk::AccessFlagBits2::eColorAttachmentWrite |
                                                  vk::AccessFlagBits2::eColorAttachmentRead,
-                                             desc.view_info.range);
+                                             desc.view_info.range));
         }
 
         state.width = std::min<u32>(state.width, std::max(image->info.size.width >> mip, 1u));
@@ -2853,12 +2896,12 @@ RenderState Rasterizer::BeginRenderingFull(const GraphicsPipeline* pipeline) {
                                     ? vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
                                 : has_stencil ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
                                               : vk::ImageLayout::eDepthReadOnlyOptimal;
-        if (!reduced) needs_barrier |= runtime.Transit(&image, new_layout,
+        if (!reduced) needs_barrier |= BbStats::BarrierReason(5, runtime.Transit(&image, new_layout,
                                          vk::PipelineStageFlagBits2::eEarlyFragmentTests |
                                              vk::PipelineStageFlagBits2::eLateFragmentTests,
                                          vk::AccessFlagBits2::eDepthStencilAttachmentWrite |
                                              vk::AccessFlagBits2::eDepthStencilAttachmentRead,
-                                         desc.view_info.range);
+                                         desc.view_info.range));
 
         state.width = std::min<u32>(state.width, image.info.size.width);
         state.height = std::min<u32>(state.height, image.info.size.height);

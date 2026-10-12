@@ -50,6 +50,7 @@ a new version is out and installs it in one click; your saves, settings and mods
 
 ### 🎨 Graphics
 - **FSR 3.1**, **FSR 4**, **DLSS** (GeForce RTX) or native **TAA**
+- **FSR 3 frame generation** — about twice the frames on screen, with any upscaler
 - **30 / 60 / 90 FPS** or unlocked with a cap
 - Output from **720p to 4K**
 - Effects on and off: motion blur, DoF, chromatic aberration, SSAO, shadows, reflections
@@ -131,6 +132,25 @@ play together — they change the game for the others too.
 
 Everything can be rebound on the **Controls** tab. Reserved by the port: **`Insert`** — settings
 menu, **left `Alt`** (hold) — free the cursor, **`F10`** — mouse camera on/off.
+
+## 🎞️ Frame generation
+
+*Graphics → Frame generation (FSR 3)*, or **Insert** in the game. One frame is interpolated
+between every two game frames, so the screen shows about twice as many. It works with every
+upscaler (FSR 3.1, FSR 4, DLSS, TAA), not with the upscaler off. The HUD is kept out of the
+interpolation, so it does not wobble.
+
+Two frames are shown per game frame and the monitor shows at most one per refresh, so with frame
+generation on the game is capped (*Frame cap with frame generation*):
+
+| Mode | Game FPS | On screen |
+|------|----------|-----------|
+| **60 / 90 FPS** (default) | 60, or 90 from 180 Hz | 120 / 180 |
+| **Half the refresh rate** | 82 at 165 Hz, 72 at 144 Hz | the refresh rate |
+
+- Input delay grows by about half a game frame.
+- Worth it when the game runs below about half your refresh rate without it. Above that, plain
+  frames feel better than real + generated ones.
 
 ## 🚀 If the game runs slowly
 

@@ -109,11 +109,11 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
     };
 
     if (!recording_threaded) {
-        current_cmdbuf.beginRendering(rendering_info);
+        RecordedBegin(current_cmdbuf, rendering_info);
         return;
     }
     // The attachment infos live on this stack frame: the recorded closure keeps copies.
-    Record([info = rendering_info, color_attachments, depth_attachment,
+    Record([this, info = rendering_info, color_attachments, depth_attachment,
             stencil_attachment](vk::CommandBuffer cmdbuf) mutable {
         info.pColorAttachments = color_attachments.data();
         if (info.pDepthAttachment) {
@@ -122,8 +122,37 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
         if (info.pStencilAttachment) {
             info.pStencilAttachment = &stencil_attachment;
         }
-        cmdbuf.beginRendering(info);
+        RecordedBegin(cmdbuf, info);
     });
+}
+
+// wbp: where the commands reach the driver (the recording thread, or the caller in direct
+// mode), the render pass state is checked once more: an end without a begin crashed the NVIDIA
+// driver (a null read in vkCmdEndRendering) when the caller-side state had gone out of step.
+void Scheduler::RecordedBegin(vk::CommandBuffer cmdbuf, const vk::RenderingInfo& info) {
+    if (recorded_rendering) {
+        NoteRenderingMismatch("a render pass began inside another; the first one is ended");
+        cmdbuf.endRendering();
+    }
+    cmdbuf.beginRendering(info);
+    recorded_rendering = true;
+}
+
+void Scheduler::RecordedEnd(vk::CommandBuffer cmdbuf) {
+    if (!recorded_rendering) {
+        NoteRenderingMismatch("a render pass end without a begin was skipped");
+        return;
+    }
+    cmdbuf.endRendering();
+    recorded_rendering = false;
+}
+
+void Scheduler::NoteRenderingMismatch(const char* what) {
+    static std::atomic<u32> count{0};
+    const u32 n = count.fetch_add(1, std::memory_order_relaxed);
+    if (n < 10 || (n & (n - 1)) == 0) {
+        std::printf("GPU: %s (%u so far)\n", what, n + 1);
+    }
 }
 
 void Scheduler::EndRendering() {
@@ -131,7 +160,7 @@ void Scheduler::EndRendering() {
         return;
     }
     is_rendering = false;
-    Record([](vk::CommandBuffer cmdbuf) { cmdbuf.endRendering(); });
+    Record([this](vk::CommandBuffer cmdbuf) { RecordedEnd(cmdbuf); });
 }
 
 void Scheduler::TraceDirectRecording(void* caller) {
@@ -213,7 +242,73 @@ void Scheduler::WaitDeferredSignals() {
     }
 }
 
+namespace {
+constexpr u32 HostCopyGranuleShift = 16;
+constexpr u64 HostCopyMaxGranules = 64; // larger notes and checks are treated as everywhere
+u32 HostCopySlotOf(u64 granule, u32 slots) {
+    return u32((granule * 0x9e3779b97f4a7c15ull) >> 40) % slots;
+}
+} // namespace
+
+void Scheduler::NoteHostCopySource(u64 address, u64 size) {
+    if (size == 0) {
+        return;
+    }
+    const u64 first = address >> HostCopyGranuleShift;
+    const u64 last = (address + size - 1) >> HostCopyGranuleShift;
+    std::scoped_lock lk{host_copy_sources_mutex};
+    const u64 seq = ++host_copy_source_seq;
+    if (last - first >= HostCopyMaxGranules) {
+        host_copy_big_seq = seq;
+        return;
+    }
+    for (u64 g = first; g <= last; ++g) {
+        auto& slot = host_copy_slots[HostCopySlotOf(g, HostCopySlots)];
+        if (slot.seq > host_copy_sources_done && slot.granule != g) {
+            slot.granule = HostCopyWildcard; // two pending granules share it
+        } else if (slot.granule != HostCopyWildcard || slot.seq <= host_copy_sources_done) {
+            slot.granule = g;
+        }
+        slot.seq = seq;
+    }
+}
+
+void Scheduler::WaitHostCopiesFor(u64 address, u64 size) {
+    {
+        std::scoped_lock lk{host_copy_sources_mutex};
+        bool overlap = host_copy_big_seq > host_copy_sources_done;
+        const u64 first = address >> HostCopyGranuleShift;
+        const u64 last = (address + std::max<u64>(size, 1) - 1) >> HostCopyGranuleShift;
+        if (last - first >= HostCopyMaxGranules) {
+            overlap = true;
+        }
+        for (u64 g = first; !overlap && g <= last; ++g) {
+            const auto& slot = host_copy_slots[HostCopySlotOf(g, HostCopySlots)];
+            overlap = slot.seq > host_copy_sources_done &&
+                      (slot.granule == g || slot.granule == HostCopyWildcard);
+        }
+        if (!overlap) {
+            return;
+        }
+    }
+    WaitHostCopies();
+}
+
 void Scheduler::WaitHostCopies() {
+    u64 sources_seen;
+    {
+        std::scoped_lock lk{host_copy_sources_mutex};
+        sources_seen = host_copy_source_seq;
+    }
+    // Copies noted after this point may still run when the waits below return.
+    struct Forget {
+        Scheduler& s;
+        u64 seen;
+        ~Forget() {
+            std::scoped_lock lk{s.host_copy_sources_mutex};
+            s.host_copy_sources_done = std::max(s.host_copy_sources_done, seen);
+        }
+    } forget{*this, sources_seen};
     if (host_copies_done.load(std::memory_order_acquire) < host_copies_issued) {
         BbStats::WaitTimer timer{BbStats::host_copies_wait_ns};
         BbStats::host_copy_waits.fetch_add(1, std::memory_order_relaxed);
@@ -239,14 +334,19 @@ void Scheduler::KickRecording(bool force) {
     if (full_chunks.empty() && record_chunk->Empty()) {
         return;
     }
+    // wbp: the replacement chunk is taken before the old one leaves and swapped in: record_chunk
+    // is never null, not even for a moment (a fault handler recording on this thread then read a
+    // null chunk and crashed).
+    std::unique_ptr<RecordChunk> next_record = record_chunk->Empty() ? nullptr : AcquireChunk();
     bool wake;
     {
         std::scoped_lock lk{recorder_mutex};
         for (auto& chunk : full_chunks) {
             recorder_queue.push_back(std::move(chunk));
         }
-        if (!record_chunk->Empty()) {
-            recorder_queue.push_back(std::move(record_chunk));
+        if (next_record) {
+            record_chunk.swap(next_record); // next_record: the chunk handed over
+            recorder_queue.push_back(std::move(next_record));
         }
         wake = recorder_sleeping;
         queued_chunks.store(recorder_queue.size(), std::memory_order_release);
@@ -255,9 +355,6 @@ void Scheduler::KickRecording(bool force) {
     // A busy recorder picks the new chunks up by itself: waking it is a syscall per draw.
     if (wake) {
         recorder_cv.notify_one();
-    }
-    if (!record_chunk) {
-        record_chunk = AcquireChunk();
     }
 }
 
@@ -426,6 +523,11 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
     SyncRecording();
     // Guest memory copies into staging read by this submission (copy threads).
     WaitHostCopies();
+    if (recorded_rendering) {
+        NoteRenderingMismatch("a render pass was still open at submission; it is ended");
+        current_cmdbuf.endRendering();
+        recorded_rendering = false;
+    }
     Check(current_cmdbuf.end());
 
     const vk::Semaphore timeline = work_semaphore.Handle();

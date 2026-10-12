@@ -130,8 +130,10 @@ public:
     bool LoadGraphicsPipeline(Serialization::Archive& ar);
     bool LoadPipelineStage(Serialization::Archive& ar, size_t stage);
 
+    /// `indirect`: an indirect draw (its size unknown: never goes without its pipeline).
     const GraphicsPipeline* GetGraphicsPipeline(const DrawIndirectParams params = {},
-                                                const PreparedDraw* prepared = nullptr);
+                                                const PreparedDraw* prepared = nullptr,
+                                                bool indirect = false);
 
     /// wbp: worker side of draw preparation: selects the pipeline key for `sel.regs` without
     /// creating anything. False when a program or permutation does not exist yet.
@@ -210,6 +212,17 @@ private:
     tsl::robin_map<vk::ShaderModule,
                    std::vector<std::variant<GraphicsPipelineKey, ComputePipelineKey>>>
         module_related_pipelines;
+
+    /// wbp BB_ASYNC_PIPELINES: a new graphics pipeline of a pass drawn every frame is compiled
+    /// on worker threads (PipelineCompiler) while its draws go without it for a frame or two,
+    /// instead of the game standing still for the driver (18 ms a pipeline on a GTX 1060, 1-4 s
+    /// hitches on a first session). Other passes (one-time renders) compile at once, as before.
+    struct PendingPipeline;
+    bool AsyncSkippable(const PipelineSelection& sel, bool indirect);
+    const GraphicsPipeline* FinishPipeline(const GraphicsPipelineKey& key, PendingPipeline& job);
+    tsl::robin_map<GraphicsPipelineKey, std::shared_ptr<PendingPipeline>> pending_graphics;
+    u64 async_started = 0, async_skipped = 0, async_waited = 0; ///< statistics
+    std::unique_ptr<class PipelineCompiler> compiler; ///< last: its threads are joined first
 };
 
 } // namespace Vulkan

@@ -153,7 +153,7 @@ CameraMotion::CameraMotion(const Instance& instance_, Scheduler& scheduler_,
 CameraMotion::~CameraMotion() = default;
 
 float CameraMotion::VerticalFov() const noexcept {
-    return 2.0f * std::atan(1.0f / current.proj[1]);
+    return 2.0f * std::atan(1.0f / std::abs(current.proj[1]));
 }
 
 float CameraMotion::Near() const noexcept {
@@ -178,6 +178,7 @@ vk::Image CameraMotion::ObjectMotionImage(u32 width, u32 height) const noexcept 
 
 void CameraMotion::RecordMotion(vk::CommandBuffer cmdbuf, vk::ImageView depth_view,
                                 vk::ImageView motion_view, u32 width, u32 height) {
+    CommitFrameCamera();
     bool object_valid = false;
     const vk::ImageView object_view = object_motion && object_motion->Enabled()
         ? object_motion->PrepareRead(cmdbuf, width, height, object_valid) : depth_view;
@@ -224,32 +225,65 @@ void CameraMotion::OnConstants(const float* data) {
         std::abs(data[1] * data[0] - 1.0f) > 1e-3f) {
         return;
     }
-    if (frame_has_camera) {
-        return; // the first one of a frame is the main camera
+    // wbp: the first constants of each G-buffer pass are its camera. A frame may have more than
+    // one such pass (another camera before the main scene): the camera goes with the pass whose
+    // depth the motion vectors use (CommitFrameCamera), not with the frame's first pass.
+    if (pass_has_camera) {
+        return;
     }
-    previous = current;
-    std::memcpy(current.view.data(), data + 8, 12 * sizeof(float));
-    std::memcpy(current.inv_view.data(), data + 180, 12 * sizeof(float));
-    current.proj = {data[52], data[57], data[62], data[63]};
-    current.valid = current.proj[0] != 0.0f && current.proj[1] != 0.0f;
+    std::memcpy(pass_camera.view.data(), data + 8, 12 * sizeof(float));
+    std::memcpy(pass_camera.inv_view.data(), data + 180, 12 * sizeof(float));
+    // wbp: the projection as the motion shaders use it: ndc +y down the screen. A fixed sign was
+    // right in some areas and wrong in others (Yahar'gul flips y: yscale -540; the Cathedral Ward
+    // stairs and the sewers do not); the viewport of the G-buffer pass decides.
+    // BB_CAMERA_Y=up/down forces one, for tests.
+    static const float forced_y = [] {
+        const char* env = std::getenv("BB_CAMERA_Y");
+        return !env ? 0.0f
+               : std::strcmp(env, "up") == 0   ? -1.0f
+               : std::strcmp(env, "down") == 0 ? 1.0f
+                                               : 0.0f;
+    }();
+    const float y_sign = forced_y != 0.0f ? forced_y : gbuffer_y_sign;
+    pass_camera.proj = {data[52] * gbuffer_x_sign, data[57] * y_sign, data[62], data[63]};
+    pass_camera.valid = pass_camera.proj[0] != 0.0f && pass_camera.proj[1] != 0.0f;
     const std::array<u32, 2> size{u32(data[4]), u32(data[5])};
     if (size != render_size) {
         std::printf("Camera motion: scene render size %ux%u\n", size[0], size[1]);
         render_size = size;
     }
+    pass_has_camera = true;
     frame_has_camera = true;
 }
 
-void CameraMotion::OnGBufferPass(VideoCore::ImageId depth) {
-    depth_id = depth;
+void CameraMotion::OnGBufferPass(VideoCore::ImageId depth, float x_sign, float y_sign) {
+    if (depth != depth_id) {
+        // Another depth target: another G-buffer pass, with its own camera.
+        depth_id = depth;
+        pass_has_camera = false;
+    }
+    gbuffer_x_sign = x_sign;
+    gbuffer_y_sign = y_sign;
+}
+
+void CameraMotion::CommitFrameCamera() {
+    if (committed || !pass_has_camera) {
+        return;
+    }
+    previous = current;
+    current = pass_camera;
+    committed = true;
 }
 
 void CameraMotion::OnDisplayPass(VideoCore::ImageId frame) {
+    CommitFrameCamera();
     if (debug_overlay && frame && depth_id && current.valid && previous.valid) {
         Overlay(frame);
     }
     if (!frame_has_camera) InvalidateHistory();
     frame_has_camera = false;
+    pass_has_camera = false;
+    committed = false;
     depth_id = {};
 }
 

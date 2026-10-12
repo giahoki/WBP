@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <source_location>
+
 #include "common/types.h"
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/renderer_vulkan/vk_barrier_tracker.h"
@@ -95,7 +97,8 @@ public:
     bool IsBufferAccessed(const VideoCore::Buffer* handle, u64 offset, u64 size,
                           bool check_read_access = false);
 
-    void FlushBarriers();
+    /// wbp: batches are counted per call site (BB_BENCH).
+    void FlushBarriers(std::source_location where = std::source_location::current());
 
     /// wbp: runs before this thread changes image state (layouts, pending image
     /// barriers): the rasterizer joins its texture binding helper there (BindHelper).

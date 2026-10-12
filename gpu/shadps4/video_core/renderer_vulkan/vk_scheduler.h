@@ -748,8 +748,7 @@ public:
             return;
         }
         if (!record_chunk->Push(std::forward<Func>(func))) {
-            full_chunks.push_back(std::move(record_chunk));
-            record_chunk = AcquireChunk();
+            SwapFullChunk();
             const bool pushed = record_chunk->Push(std::forward<Func>(func));
             ASSERT(pushed);
         }
@@ -769,9 +768,16 @@ public:
         }
         ASSERT(bytes + 1024 <= RecordChunk::Capacity);
         if (RecordChunk::Capacity - record_chunk->Size() < bytes + 1024) {
-            full_chunks.push_back(std::move(record_chunk));
-            record_chunk = AcquireChunk();
+            SwapFullChunk();
         }
+    }
+
+    /// wbp: replaces the full record_chunk with a new one, which is taken first: record_chunk
+    /// is never null (a fault handler may record on this thread meanwhile).
+    void SwapFullChunk() {
+        auto full = AcquireChunk();
+        record_chunk.swap(full);
+        full_chunks.push_back(std::move(full));
     }
 
     /// Copies `data` into recording storage that lives until the command that uses it has
@@ -801,6 +807,15 @@ public:
     /// (it may then rewrite the memory, e.g. UI vertices: flickering) and before the
     /// submission that reads them. Waits for all.
     void WaitHostCopies();
+
+    /// wbp: guest memory [address, address + size) a host copy issued now will read (the
+    /// source of a deferred upload). WaitHostCopiesFor waits only for these.
+    void NoteHostCopySource(u64 address, u64 size);
+    /// Waits for the host copies when one of them may still read [address, address + size): a
+    /// write there (the command processor's WRITE_DATA) must not change what they copy. Writes
+    /// elsewhere do not wait (the hardware's command processor writes do not wait for earlier
+    /// draws either).
+    void WaitHostCopiesFor(u64 address, u64 size);
 
     /// Runs `copy` on the recording thread in order with the commands (the thread spins for
     /// work anyway, so small copies cost no wakeup); WaitHostCopies() covers it.
@@ -909,6 +924,11 @@ private:
     std::jthread priority_pending_ops_thread;
     RenderState render_state;
     bool is_rendering = false;
+    /// wbp: the render pass state as recorded into the command buffer (recording side).
+    bool recorded_rendering = false;
+    void RecordedBegin(vk::CommandBuffer cmdbuf, const vk::RenderingInfo& info);
+    void RecordedEnd(vk::CommandBuffer cmdbuf);
+    static void NoteRenderingMismatch(const char* what);
     // wbp: threaded recording
     std::unique_ptr<RecordChunk> record_chunk;
     std::vector<std::unique_ptr<RecordChunk>> full_chunks;
@@ -923,6 +943,20 @@ private:
     bool direct_mode = false; ///< the command buffer is recorded on the caller's thread
     u64 host_copies_issued = 0;
     std::atomic<u64> host_copies_done{0};
+    /// wbp: host copy sources by 64 KiB granule in a direct-mapped table: a slot is pending
+    /// while its note is newer than the last completed WaitHostCopies; a slot two granules
+    /// share is a wildcard (any granule mapping there counts as pending).
+    struct HostCopySlot {
+        u64 granule = 0;
+        u64 seq = 0;
+    };
+    static constexpr u32 HostCopySlots = 4096;
+    static constexpr u64 HostCopyWildcard = ~u64(0);
+    std::mutex host_copy_sources_mutex;
+    std::array<HostCopySlot, HostCopySlots> host_copy_slots{};
+    u64 host_copy_source_seq = 0;
+    u64 host_copy_sources_done = 0; ///< notes up to this one are copied
+    u64 host_copy_big_seq = 0;      ///< last note too large for the table (counts as everywhere)
     std::atomic<u64> deferred_signals_issued{0}; ///< by the thread recording (A or B)
     std::shared_ptr<std::atomic<u64>> deferred_signals_done =
         std::make_shared<std::atomic<u64>>(0);

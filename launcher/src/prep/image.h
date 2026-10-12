@@ -21,6 +21,12 @@ void BuildImage(const fs::path& game, const fs::path& out);
 // [start, end) of the eboot's PT_LOAD segments (virtual addresses), from its headers only.
 std::vector<std::pair<uint64_t, uint64_t>> EbootLoadRanges(const fs::path& game);
 
+// What keeps a game folder from running even though it is version 1.09, or empty:
+// "patched_eboot" (the 1.09 eboot.bin with a 60 FPS patch baked in: the gestures menu crashes)
+// or "damaged_files" (the shaders do not unpack: a broken extraction; the game would hang while
+// loading them). BB_SKIP_GAME_CHECK=1: always empty.
+std::string GameProblem(const fs::path& game);
+
 // out/content.bin: the AppContent profile (SKU and the four user-defined parameters).
 void WriteContentProfile(const fs::path& game, const fs::path& out, const std::string& sku);
 

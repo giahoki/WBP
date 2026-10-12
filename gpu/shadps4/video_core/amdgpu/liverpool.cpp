@@ -239,13 +239,29 @@ bool PipelinedOpcode(PM4ItOpcode opcode) {
 } // namespace
 
 namespace {
+// wbp: a label written straight into guest memory (no backing view): one store. A memcpy of a
+// variable 4 or 8 bytes may be two overlapping stores; a thread preempted between them wrote the
+// label again after the guest had freed its block (guest fault at 0x263b8e7).
+void StoreLabel(void* address, u64 value, u32 num_bytes) {
+    if (num_bytes == 8 && (reinterpret_cast<uintptr_t>(address) & 7) == 0) {
+        __atomic_store_n(static_cast<u64*>(address), value, __ATOMIC_RELEASE);
+    } else if (num_bytes == 4 && (reinterpret_cast<uintptr_t>(address) & 3) == 0) {
+        __atomic_store_n(static_cast<u32*>(address), u32(value), __ATOMIC_RELEASE);
+    } else {
+        auto* dst = static_cast<u8*>(address);
+        for (u32 i = 0; i < num_bytes; ++i) {
+            __atomic_store_n(dst + i, u8(value >> (8 * i)), __ATOMIC_RELEASE);
+        }
+    }
+}
+
 void SignalEop(const PM4CmdEventWriteEop& eop) {
     eop.SignalFence(
         [](void* address, u64 data, u32 num_bytes) {
             auto* memory = Core::Memory::Instance();
             BbWriteLog::Note(reinterpret_cast<u64>(address), &data, num_bytes, BbWriteLog::Fence);
             if (!memory->TryWriteBacking(address, &data, num_bytes)) {
-                memcpy(address, &data, num_bytes);
+                StoreLabel(address, data, num_bytes);
             }
         },
         [] { Platform::IrqC::Instance()->Signal(Platform::InterruptId::GfxEop); });
@@ -320,9 +336,12 @@ void SignalFlip(Vulkan::Rasterizer& rasterizer, const u8*) {
 void RunWriteData(Vulkan::Rasterizer& rasterizer, const u8* data) {
     const auto* header = reinterpret_cast<const PM4Header*>(data);
     const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(data);
-    // Copies deferred to the recording thread, and fences deferred to it (RecorderFences),
-    // precede writes the guest sees.
-    rasterizer.WaitHostCopies();
+    // Copies deferred to the recording thread that read this range precede the write (the
+    // command processor's writes do not wait for earlier draws: the game cannot take one for a
+    // sign that the GPU is past them); fences deferred to it (RecorderFences) precede writes the
+    // guest sees.
+    rasterizer.WaitHostCopiesFor(write_data->Address<VAddr>(),
+                                 (header->type3.count.Value() - 2) * sizeof(u32));
     rasterizer.WaitDeferredSignals();
     BbWriteLog::Note(write_data->Address<u64>(), write_data->data,
                      (header->type3.count.Value() - 2) * sizeof(u32), BbWriteLog::WriteData);
@@ -340,7 +359,7 @@ void RunEventWriteEos(Vulkan::Rasterizer& rasterizer, const u8* data) {
         auto* memory = Core::Memory::Instance();
         BbWriteLog::Note(reinterpret_cast<u64>(address), &value, num_bytes, BbWriteLog::Fence);
         if (!memory->TryWriteBacking(address, &value, num_bytes)) {
-            memcpy(address, &value, num_bytes);
+            StoreLabel(address, value, num_bytes);
         }
     });
     if (event_eos.command == PM4CmdEventWriteEos::Command::GdsStore) {
@@ -1511,6 +1530,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             break;
         }
         case PM4ItOpcode::DispatchDirect: {
+            BbStats::asc_dispatches.fetch_add(1, std::memory_order_relaxed);
             const auto* dispatch_direct = reinterpret_cast<const PM4CmdDispatchDirect*>(header);
             if (auto it = std::ranges::find(indirect_patches, header, &IndirectPatch::header);
                 it != indirect_patches.end()) {
@@ -1537,6 +1557,7 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             break;
         }
         case PM4ItOpcode::DispatchIndirect: {
+            BbStats::asc_dispatches.fetch_add(1, std::memory_order_relaxed);
             const auto* dispatch_indirect =
                 reinterpret_cast<const PM4CmdDispatchIndirectMec*>(header);
             auto& cs_program = GetCsRegs();
@@ -1556,13 +1577,15 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
             break;
         }
         case PM4ItOpcode::WriteData: {
-            // wbp: copies deferred to the recording thread precede writes the guest sees, and
-            // so do graphics fences deferred to it (the pipe was drained before this packet).
+            // wbp: copies deferred to the recording thread that read this range precede the
+            // write, and graphics fences deferred to it precede writes the guest sees (the pipe
+            // was drained before this packet).
+            const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
             if (rasterizer) {
-                rasterizer->WaitHostCopies();
+                rasterizer->WaitHostCopiesFor(write_data->Address<VAddr>(),
+                                              (header->type3.count.Value() - 2) * 4);
                 rasterizer->WaitDeferredSignals();
             }
-            const auto* write_data = reinterpret_cast<const PM4CmdWriteData*>(header);
             ASSERT(write_data->dst_sel.Value() == 2 || write_data->dst_sel.Value() == 5);
             const u32 data_size = (header->type3.count.Value() - 2) * 4;
             if (!write_data->wr_one_addr.Value()) {

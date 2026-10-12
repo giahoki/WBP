@@ -7,6 +7,7 @@
 #include <array>
 #include <cstring>
 #include <fstream>
+#include <libdeflate.h>
 
 namespace prep {
 namespace {
@@ -309,6 +310,76 @@ std::string GameVersion(const fs::path& game) {
     } catch (const Failure&) {
         return {};
     }
+}
+
+namespace {
+// The SHA-256 of the 1.09 eboot.bin's loaded image (its loadable segments at their addresses):
+// the same whatever tool dumped it (the SELF headers around it differ).
+constexpr const char* SUPPORTED_IMAGE = "071df19c8880086d97182dbc057bc8cb37badaca57d9112683836b24a0444c0a";
+// The 1.09 executable with a 60 FPS patch applied to it, as some dumps ship it: one of its edits
+// inverts a branch in the menu code (+0xf6d90d) and the gestures menu crashes the game.
+constexpr const char* PATCHED_60FPS_IMAGE = "bbc91f4dff6bc3118b039464289e39878a8fdfc802a07fab9d5fe84d935a676f";
+
+std::string ImageSha256(const fs::path& game) {
+    const Elf e = ParseSelf(ReadFile(game / L"eboot.bin"));
+    uint64_t size = 0;
+    for (const Ph& p : e.ph)
+        if (IsLoad(p)) size = std::max(size, p.vaddr + p.memsz);
+    if (size > MAX_IMAGE) throw Failure("eboot image too large");
+    Bytes image(size_t(size), 0);
+    for (const Ph& p : e.ph) {
+        if (!IsLoad(p)) continue;
+        const Bytes part = Span(e.elf, p.offset, p.filesz);
+        if (p.vaddr + part.size() > image.size()) throw Failure("segment outside the image");
+        std::memcpy(image.data() + p.vaddr, part.data(), part.size());
+    }
+    return Sha256Hex(image.data(), image.size());
+}
+
+// True when a DFLT .dcx file does not unpack to its stated size or fails zlib's checksum (other
+// compressions are not checked). An extraction tool that leaves parts of compressed sectors
+// stale damages most files, the shaders the game loads first among them.
+bool DcxBroken(const fs::path& path) {
+    Bytes data;
+    try {
+        data = ReadFile(path);
+    } catch (const Failure&) {
+        return true;
+    }
+    if (data.size() < 0x4C || std::memcmp(data.data(), "DCX\0", 4) || std::memcmp(data.data() + 0x18, "DCS\0", 4) ||
+        std::memcmp(data.data() + 0x28, "DFLT", 4))
+        return false;
+    const auto be32 = [&](size_t at) {
+        return uint32_t(data[at]) << 24 | uint32_t(data[at + 1]) << 16 | uint32_t(data[at + 2]) << 8 | data[at + 3];
+    };
+    const uint32_t size = be32(0x1C), packed = be32(0x20);
+    if (packed > data.size() - 0x4C) return true;
+    Bytes out(size_t(size) + 1);
+    libdeflate_decompressor* d = libdeflate_alloc_decompressor();
+    size_t actual = 0;
+    const auto result = libdeflate_zlib_decompress(d, data.data() + 0x4C, packed, out.data(), out.size(), &actual);
+    libdeflate_free_decompressor(d);
+    return result != LIBDEFLATE_SUCCESS || actual != size;
+}
+}  // namespace
+
+std::string GameProblem(const fs::path& game) {
+    if (HasEnv("BB_SKIP_GAME_CHECK") && Env("BB_SKIP_GAME_CHECK") == "1") return {};
+    std::string hash;
+    try {
+        hash = ImageSha256(game);
+    } catch (const Failure&) {
+        return {};  // unreadable: the image build reports it
+    }
+    if (hash == PATCHED_60FPS_IMAGE) return "patched_eboot";
+    if (hash != SUPPORTED_IMAGE) return {};
+    std::error_code ec;
+    const fs::path shaders = game / L"dvdroot_ps4" / L"shader";
+    for (fs::recursive_directory_iterator it(shaders, ec), end; !ec && it != end; it.increment(ec)) {
+        if (it->is_regular_file(ec) && it->path().extension() == L".dcx" && DcxBroken(it->path()))
+            return "damaged_files";
+    }
+    return {};
 }
 
 void BuildImage(const fs::path& game, const fs::path& out) {

@@ -255,9 +255,11 @@ int RunWindow() {
             glfwWaitEventsTimeout(0.25);
             continue;
         }
-        // About 60 frames per second in front, 20 behind other windows.
+        // About 60 frames per second in front, 20 behind other windows, and 1 behind the game: the
+        // launcher draws on the default adapter (the integrated GPU of a hybrid laptop), whose
+        // animated background kept it busy all through the game.
         const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-        const double period = focused ? 1.0 / 60 : 1.0 / 20;
+        const double period = focused ? 1.0 / 60 : launcher.GameRunning() ? 1.0 : 1.0 / 20;
         if (now - last < period) {
             glfwWaitEventsTimeout(period - (now - last));
             continue;

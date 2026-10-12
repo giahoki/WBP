@@ -139,6 +139,8 @@ inline std::atomic<std::uint64_t> protect_calls{0}, protect_pages{0}, protect_re
 /// Recorded render passes and barrier batches (memory part, image barriers) for BB_BENCH.
 inline std::atomic<std::uint64_t> render_passes{0}, barrier_batches{0}, memory_barriers{0},
     image_barriers{0};
+/// Image accesses that skipped a barrier: a read after reads in the same layout.
+inline std::atomic<std::uint64_t> image_barriers_merged{0};
 /// GPU tick waits per call site (Scheduler::Wait): file and line of the caller, wall time.
 struct TickWaitSite {
     std::atomic<const char*> file{nullptr};
@@ -164,5 +166,38 @@ inline void NoteTickWait(const char* file, std::uint32_t line, std::uint64_t ns)
             return;
         }
     }
+}
+/// Barrier batches per call site of Runtime::FlushBarriers (same table layout as tick waits).
+inline TickWaitSite barrier_sites[64];
+inline void NoteBarrierSite(const char* file, std::uint32_t line) {
+    for (auto& site : barrier_sites) {
+        const char* known = site.file.load(std::memory_order_acquire);
+        if (!known) {
+            const char* expected = nullptr;
+            if (site.file.compare_exchange_strong(expected, file)) {
+                site.line.store(line, std::memory_order_release);
+                known = file;
+            } else {
+                known = expected;
+            }
+        }
+        if (known == file && site.line.load(std::memory_order_acquire) == line) {
+            site.count.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+    }
+}
+/// Dispatches from the guest's asynchronous compute queues (ACB), for BB_BENCH.
+inline std::atomic<std::uint64_t> asc_dispatches{0};
+/// Images presented to the swapchain (game frames plus generated ones), for BB_BENCH.
+inline std::atomic<std::uint64_t> presents{0};
+/// Why a draw needed a barrier (BB_BENCH): 0 vertex buffers, 1 index buffer, 2 GDS, 3 shader
+/// buffers, 4 colour targets, 5 depth target, 6 textures (helper).
+inline std::atomic<std::uint64_t> barrier_reasons[8]{};
+inline bool BarrierReason(int reason, bool hit) {
+    if (hit) {
+        barrier_reasons[reason].fetch_add(1, std::memory_order_relaxed);
+    }
+    return hit;
 }
 } // namespace BbStats

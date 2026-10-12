@@ -24,6 +24,7 @@ public:
     ~Launcher();
     void Frame();             // one frame of the whole window
     bool WantsClose() const { return close_at_ > 0 && ui_.in.time >= close_at_; }
+    bool GameRunning() const { return game_.Running(); }
     bool Animating() const;   // something moves: keep drawing at full rate
     void Closing();           // saves the settings
     void Open(const std::string& page) { Show(page); }
@@ -119,6 +120,10 @@ private:
 
     std::mutex lock_;  // what background work hands back
     std::string gpu_text_;
+    std::string GpuText() {
+        std::lock_guard g(lock_);
+        return gpu_text_;
+    }
     std::vector<std::pair<std::string, bool>> notices_;
     std::optional<actions::Release> update_;
     std::string update_state_;

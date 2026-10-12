@@ -34,6 +34,13 @@ void CleanUpdateLeftovers();
 
 // "✓ Graphics card: NAME", "✗ ..." or "• ..." (bb-gpu-capabilities.exe).
 std::string DetectGpu();
+// What DetectGpu found (empty name until it has run): for the graphics preset recommendation.
+struct GpuInfo {
+    std::string name;
+    bool integrated = false;
+    int vram_mib = 0;
+};
+GpuInfo DetectedGpu();
 std::string TestConnection(const App& app);
 void DownloadFsr4(const std::function<void(size_t, size_t)>& progress);  // throws Failure
 

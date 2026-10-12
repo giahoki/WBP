@@ -6,16 +6,114 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <map>
 #include <random>
 #include <set>
 
 #include "../i18n.h"
+#include "../prep/image.h"
 #include "../prep/mods.h"
 #include "../prep/patches.h"
 
 using namespace theme;
 
 namespace {
+
+// Graphics presets: every key a preset sets. Defaults (Ini::Defaults) equal "high".
+const std::vector<Choice> GRAPHICS_PRESETS = {
+    {"low", {"Low: weak GPUs (GTX 1650, laptops)", "Низкие: слабые видеокарты (GTX 1650, ноутбуки)"}},
+    {"medium", {"Medium", "Средние"}},
+    {"high", {"High: recommended", "Высокие: рекомендуемые"}},
+    {"ultra", {"Ultra: native resolution, highest detail", "Ультра: нативное разрешение, максимум деталей"}},
+    {"custom", {"Custom", "Свои"}}};
+using Values = std::vector<std::pair<const char*, const char*>>;
+const Values& PresetValues(const std::string& id) {
+    static const Values low = {{"upscaler", "auto"}, {"preset", "3"}, {"live_resolution", "0"},
+                               {"object_motion", "0"}, {"model_lod", "1"}, {"shadow_quality", "low"},
+                               {"effect_ssao", "0"}, {"effect_dof", "0"}, {"effect_motion_blur", "0"},
+                               {"effect_dynamic_shadows", "0"}, {"sharpen", "1"}};
+    static const Values medium = {{"upscaler", "auto"}, {"preset", "2"}, {"live_resolution", "auto"},
+                                  {"object_motion", "0"}, {"model_lod", "0"}, {"shadow_quality", "high"},
+                                  {"effect_ssao", "1"}, {"effect_dof", "1"}, {"effect_motion_blur", "0"},
+                                  {"effect_dynamic_shadows", "1"}, {"sharpen", "1"}};
+    static const Values high = {{"upscaler", "auto"}, {"preset", "1"}, {"live_resolution", "auto"},
+                                {"object_motion", "1"}, {"model_lod", "0"}, {"shadow_quality", "high"},
+                                {"effect_ssao", "1"}, {"effect_dof", "1"}, {"effect_motion_blur", "1"},
+                                {"effect_dynamic_shadows", "1"}, {"sharpen", "1"}};
+    static const Values ultra = {{"upscaler", "auto"}, {"preset", "0"}, {"live_resolution", "auto"},
+                                 {"object_motion", "1"}, {"model_lod", "-2"}, {"shadow_quality", "high"},
+                                 {"effect_ssao", "1"}, {"effect_dof", "1"}, {"effect_motion_blur", "1"},
+                                 {"effect_dynamic_shadows", "1"}, {"sharpen", "1"}};
+    static const Values none;
+    return id == "low" ? low : id == "medium" ? medium : id == "high" ? high : id == "ultra" ? ultra : none;
+}
+
+// Model number after a prefix ("rtx 4060" -> 4060), or 0.
+int ModelNumber(const std::string& lower, const char* prefix) {
+    const size_t at = lower.find(prefix);
+    if (at == std::string::npos) return 0;
+    try {
+        return std::stoi(lower.substr(at + std::strlen(prefix)));
+    } catch (...) {
+        return 0;
+    }
+}
+
+// Preset for a graphics card, from measurements on an RTX 4060 Ti (High: ~80 FPS at 1080p)
+// and the relative speed of other cards. The port is limited by the GPU, so the card decides.
+std::string RecommendedPreset(const actions::GpuInfo& gpu) {
+    const std::string n = Lower(gpu.name);
+    if (gpu.integrated || (gpu.vram_mib > 0 && gpu.vram_mib < 4500)) return "low";
+    if (const int rtx = ModelNumber(n, "rtx ")) {
+        const int series = rtx / 100, tier = rtx % 100;
+        if (tier >= 80) return series >= 30 ? "ultra" : "high";
+        if (tier >= 70) return series >= 40 ? "ultra" : "high";
+        if (tier >= 60) return series >= 40 ? "high" : "medium";
+        return series >= 40 ? "medium" : "low";
+    }
+    if (n.find("gtx") != std::string::npos) return ModelNumber(n, "gtx ") >= 1070 ? "medium" : "low";
+    if (const int rx = ModelNumber(n, "rx ")) {
+        if (rx >= 9070 || (rx >= 7900 && rx < 8000)) return "ultra";
+        if (rx >= 9000 || (rx >= 7700 && rx < 8000) || (rx >= 6800 && rx < 7000)) return "high";
+        if (rx >= 6600) return "medium";
+        return "low";
+    }
+    if (n.find("arc") != std::string::npos) return n.find("b580") != std::string::npos ? "high" : "medium";
+    return gpu.vram_mib >= 12000 ? "high" : gpu.vram_mib >= 8000 ? "medium" : "low";
+}
+
+// DLSS: wbp_dlss.dll and nvngx_dlss.dll next to wbp-game.exe (bin\ in a package, out\ in a build).
+bool DlssInstalled() {
+    for (const wchar_t* dir : {L"bin", L"out"}) {
+        std::error_code ec;
+        const fs::path base = PortDir() / dir;
+        if (fs::is_regular_file(base / L"wbp_dlss.dll", ec) && fs::is_regular_file(base / L"nvngx_dlss.dll", ec))
+            return true;
+    }
+    return false;
+}
+
+// The upscaler list for this graphics card: "Auto" names what it will pick, and DLSS is only
+// offered on GeForce RTX. `gpu` is the checked card ("✓ ..."), empty until the check is done.
+const std::vector<Choice>& UpscalerChoices(const std::string& gpu) {
+    static const std::vector<Choice> unknown = UPSCALERS;
+    const auto with_auto = [](Text title, bool keep_dlss) {
+        std::vector<Choice> list;
+        for (const Choice& c : UPSCALERS) {
+            if (std::string_view(c.value) == "dlss" && !keep_dlss) continue;
+            list.push_back(std::string_view(c.value) == "auto" ? Choice{"auto", title} : c);
+        }
+        return list;
+    };
+    static const std::vector<Choice> rtx_dlss = with_auto({"Auto (DLSS)", "Авто (DLSS)"}, true);
+    static const std::vector<Choice> rtx_no_dlss = with_auto(
+        {"Auto (FSR 3.1; DLSS is not installed)", "Авто (FSR 3.1; DLSS не установлен)"}, true);
+    static const std::vector<Choice> other = with_auto({"Auto (FSR 3.1)", "Авто (FSR 3.1)"}, false);
+    if (gpu.rfind("\u2713", 0) != 0) return unknown;  // not checked yet
+    if (Lower(gpu).find("rtx") == std::string::npos) return other;
+    static const bool dlss = DlssInstalled();
+    return dlss ? rtx_dlss : rtx_no_dlss;
+}
 
 constexpr float HEADER = 128, BAR = 92;
 constexpr float MOUSE_MIN = 0.1f, MOUSE_MAX = 5.0f;
@@ -148,6 +246,12 @@ bool Launcher::IniFlag(Form& f, const std::string& key, const std::string& label
 bool Launcher::IniChoice(Form& f, const std::string& key, const std::string& label, const std::vector<Choice>& choices,
                          const std::string& hint) {
     std::string v = ini_.Get(key);
+    // A value the list does not know (an older version's, a typo) is shown as the default the
+    // game falls back to, not as the list's first entry (which was DLSS for the upscaler).
+    const auto known = [&](const std::string& value) {
+        return std::any_of(choices.begin(), choices.end(), [&](const Choice& c) { return value == c.value; });
+    };
+    if (!known(v) && Ini::Defaults().count(key) && known(Ini::Defaults().at(key))) v = Ini::Defaults().at(key);
     if (!f.Choice("ini." + key, label, v, Opts(choices), hint)) return false;
     ini_.values[key] = v;
     IniChanged(key);
@@ -244,18 +348,12 @@ std::vector<Launcher::Check> Launcher::Checks() {
     for (const char* mark : {"✓ ", "✗ ", "• "})
         if (StartsWith(gpu, mark)) gpu = gpu.substr(std::strlen(mark));
     out.push_back({kind, gpu});
-    static double fsr4_checked = -10;
-    static bool fsr4_ok = false;
-    if (ui_.in.time - fsr4_checked > 3) fsr4_ok = Fsr4Missing().empty(), fsr4_checked = ui_.in.time;
-    out.push_back(fsr4_ok ? Check{"ok", T("FSR 4 assets installed", "Ассеты FSR 4 установлены")}
-                          : Check{"info", T("FSR 4 assets missing (Graphics); FSR 3.1 is used meanwhile",
-                                            "Нет ассетов FSR 4 («Графика»); пока используется FSR 3.1")});
     return out;
 }
 
 std::string Launcher::UpscalerWarning() {
     const std::string upscaler = ini_.Get("upscaler");
-    if (upscaler != "fsr4" && upscaler != "fsr411") return {};
+    if (upscaler != "fsr4" && upscaler != "fsr411" && upscaler != "dlss") return {};
     std::string gpu;
     {
         std::lock_guard g(lock_);
@@ -263,6 +361,13 @@ std::string Launcher::UpscalerWarning() {
     }
     if (!StartsWith(gpu, "\u2713")) return {};  // not checked yet
     const std::string lower = Lower(gpu);
+    if (upscaler == "dlss") {
+        if (lower.find("rtx") != std::string::npos) return {};
+        return T("DLSS needs a GeForce RTX card; on this graphics card the game uses FSR 3.1 instead. Choose FSR 3.1 "
+                 "or Auto.",
+                 "DLSS \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 \u0432\u0438\u0434\u0435\u043e\u043a\u0430\u0440\u0442\u0430\u0445 GeForce RTX; \u043d\u0430 \u044d\u0442\u043e\u0439 \u0432\u0438\u0434\u0435\u043e\u043a\u0430\u0440\u0442\u0435 \u0438\u0433\u0440\u0430 \u0432\u043a\u043b\u044e\u0447\u0438\u0442 FSR 3.1. \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 "
+                 "FSR 3.1 \u0438\u043b\u0438 \u00ab\u0410\u0432\u0442\u043e\u00bb.");
+    }
     if (lower.find("amd") != std::string::npos || lower.find("radeon") != std::string::npos) return {};
     return T("FSR 4 is built for AMD Radeon cards. On this graphics card it runs as ordinary compute shaders and "
              "costs a lot of frame time: FSR 3.1 (or DLSS on GeForce RTX) is much faster.",
@@ -271,8 +376,26 @@ std::string Launcher::UpscalerWarning() {
 }
 
 std::string Launcher::VersionWarning() {
-    auto info = ReadGameInfo(PathFrom(app_.Str("game_dir")));
-    if (!info || info->version == PATCH_VERSION) return {};
+    const fs::path game = PathFrom(app_.Str("game_dir"));
+    auto info = ReadGameInfo(game);
+    if (!info) return {};
+    if (info->version == PATCH_VERSION) {
+        // The files of a 1.09 game are checked once per folder (under a second).
+        static std::map<fs::path, std::string> checked;
+        auto it = checked.find(game);
+        if (it == checked.end()) it = checked.emplace(game, prep::GameProblem(game)).first;
+        if (it->second == "patched_eboot")
+            return T("eboot.bin is the 1.09 executable with a 60 FPS patch baked in: the gestures menu crashes the game. "
+                     "Use the clean 1.09 eboot.bin (the port has its own frame rate patches).",
+                     "eboot.bin — исполняемый файл 1.09 со вшитым патчем 60 FPS: меню жестов роняет игру. Нужен чистый "
+                     "eboot.bin 1.09 (у порта свои патчи частоты кадров).");
+        if (it->second == "damaged_files")
+            return T("The game files are damaged: the shaders in dvdroot_ps4/shader do not unpack, and the game would hang "
+                     "while loading them. Extract the game and the 1.09 update again with another tool.",
+                     "Файлы игры повреждены: шейдеры в dvdroot_ps4/shader не распаковываются, игра зависнет на их загрузке. "
+                     "Распакуйте игру и обновление 1.09 заново другим инструментом.");
+        return {};
+    }
     return Fmt(T("Your game is version {}: these options are patches for 1.09 and are not applied; the game runs at 30 FPS. "
                  "Update the dump to 1.09 to use them.",
                  "Ваша игра версии {}: эти настройки — патчи для 1.09 и не применяются; игра работает в 30 FPS. "
@@ -288,7 +411,7 @@ std::string Launcher::Summary() {
         if (app_.Str("fps_mode") == c.value) fps = c.title();
     if (info->version != PATCH_VERSION) fps = "30 FPS";
     std::string upscaler = "?";
-    for (const Choice& c : UPSCALERS)
+    for (const Choice& c : UpscalerChoices(GpuText()))
         if (ini_.Get("upscaler") == c.value) upscaler = Split(c.title(), '(')[0];
     upscaler = Trim(upscaler);
     const std::string output = Replace(ini_.Get("output_res"), "x", " × ");
@@ -614,7 +737,7 @@ float Launcher::GameCard(float x, float y, float w) {
     y += 38;
     TextStyle meta = Style(13, MUTED);
     meta.caps = true, meta.spacing = 1.2f, meta.wrap = false;
-    g.Text(info ? "CUSA03173   \u00b7   " + Fmt(T("version {}", "версия {}"), info->version) : T("Choose it on Game & effects",
+    g.Text(info ? info->id + "   \u00b7   " + Fmt(T("version {}", "версия {}"), info->version) : T("Choose it on Game & effects",
                                                                                           "Выберите её на вкладке «Игра и эффекты»"),
            Rect{x, y, w, 20}, meta, true);
     y += 30;
@@ -841,7 +964,7 @@ float Launcher::PlayPage(const Rect& r) {
     Gfx& g = ui_.g;
     const auto info = ReadGameInfo(PathFrom(app_.Str("game_dir")));
     default_title_ = info ? info->title : "Bloodborne";
-    default_text_ = (info ? Fmt(T("CUSA03173 · game version {}", "CUSA03173 · версия игры {}"), info->version)
+    default_text_ = (info ? info->id + Fmt(T(" · game version {}", " · версия игры {}"), info->version)
                           : T("Game folder not set", "Папка игры не выбрана")) +
                     "\n\n" + T("In the game: Insert opens the port's menu\n(gamepad: press both sticks).",
                                "В игре: Insert открывает меню порта\n(геймпад: нажать оба стика).");
@@ -857,11 +980,11 @@ float Launcher::PlayPage(const Rect& r) {
                 "always run at 30 FPS (the patches would corrupt them).",
                 "Патчи сообщества для версии 1.09. «Без ограничения» — игра использует реальное время кадра. Другие версии "
                 "всегда работают в 30 FPS."));
-    IniChoice(f, "upscaler", T("Upscaler", "Апскейлер"), UPSCALERS,
-              T("Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot "
-                "products; otherwise the game falls back to FSR 3.1 by itself.",
-                "Временной апскейлинг с векторами движения игры. FSR 4 нужны ассеты (ниже) и GPU с INT8; иначе игра сама "
-                "переключится на FSR 3.1."));
+    IniChoice(f, "upscaler", T("Upscaler", "Апскейлер"), UpscalerChoices(GpuText()),
+              T("Temporal upscaling with the game's own motion vectors. FSR 4 needs a GPU with INT8 dot products; otherwise the "
+                "game falls back to FSR 3.1 by itself.",
+                "Временной апскейлинг с векторами движения игры. FSR 4 нужен GPU с INT8; иначе игра сама переключится на "
+                "FSR 3.1."));
     IniChoice(f, "preset", T("Preset", "Пресет"), PRESETS,
               T("Render scale per axis: Quality renders at 1/1.5 of the output size.",
                 "Масштаб рендера по каждой оси: Quality рисует в 1/1.5 размера вывода."));
@@ -883,12 +1006,54 @@ float Launcher::GraphicsPage(float x, float y, float w) {
                    "Хранится в wbp.ini; в игре меняется через меню (Insert)."));
     Form f(ui_, x, y, w);
     f.Warning(UpscalerWarning());
+    f.Section(T("Graphics preset", "Пресет графики"));
+    {
+        std::string current = "custom";
+        for (const char* id : {"low", "medium", "high", "ultra"}) {
+            bool all = true;
+            for (const auto& [key, value] : PresetValues(id)) all = all && ini_.Get(key) == value;
+            if (all) current = id;
+        }
+        const auto apply = [this](const std::string& id) {
+            for (const auto& [key, value] : PresetValues(id)) ini_.values[key] = value;
+            Changed();
+        };
+        std::string chosen = current;
+        if (f.Choice("ini.graphics_preset", T("Preset", "Пресет"), chosen, Opts(GRAPHICS_PRESETS),
+                     T("Sets every item below at once; changing one of them afterwards makes it Custom.",
+                       "Выставляет все пункты ниже сразу; если потом изменить любой из них, пресет станет «Свои».")) &&
+            chosen != "custom")
+            apply(chosen);
+        const actions::GpuInfo gpu = actions::DetectedGpu();
+        const std::string label = T("Pick for my graphics card", "Подобрать под видеокарту");
+        if (ui_.Button("gfx_detect", label, Rect{x, f.y, ui_.ButtonWidth(label, true), 32}, {true, false, gpu.name.empty()})) {
+            const std::string id = RecommendedPreset(gpu);
+            apply(id);
+            for (const Choice& c : GRAPHICS_PRESETS)
+                if (id == c.value) Notify(gpu.name + ": " + Split(c.title(), ':')[0]);
+        }
+        f.y += 44;
+    }
+    IniFlag(f, "frame_generation", T("Frame generation (FSR 3)", "Генерация кадров (FSR 3)"),
+            T("One more frame is interpolated between every two game frames: nearly twice the frame rate on "
+              "screen, with about half a frame more input delay. Works with every upscaler (not with it off). Best above 50 FPS "
+              "without it.",
+              "Между каждыми двумя кадрами игры дорисовывается ещё один: почти вдвое больше FPS на экране, "
+              "задержка управления больше примерно на полкадра. Работает с любым апскейлером (кроме выключенного). "
+              "Лучше всего, если без неё больше 50 FPS."));
+    IniChoice(f, "frame_generation_mode", T("Frame cap with frame generation", "Лимит FPS с генерацией"), FG_MODES,
+              T("Two frames are shown per game frame, one per display refresh, so the game is capped while frame "
+                "generation is on. 60 / 90 FPS: 60 (90 from 180 Hz), the steadiest. Half the refresh rate: more real frames "
+                "(82 at 165 Hz, 72 at 144 Hz).",
+                "На каждый кадр игры показываются два, по одному за обновление монитора, поэтому с генерацией игра "
+                "ограничивается. 60 / 90 FPS: 60 (90 от 180 Гц), ровнее всего. Половина частоты монитора: больше настоящих "
+                "кадров (82 при 165 Гц, 72 при 144 Гц)."));
     f.Section(T("Upscaling", "Апскейлинг"));
-    IniChoice(f, "upscaler", T("Upscaler", "Апскейлер"), UPSCALERS,
-              T("Temporal upscaling with the game's own motion vectors. FSR 4 needs its assets (below) and a GPU with INT8 dot "
-                "products; otherwise the game falls back to FSR 3.1 by itself.",
-                "Временной апскейлинг с векторами движения игры. FSR 4 нужны ассеты (ниже) и GPU с INT8; иначе игра сама "
-                "переключится на FSR 3.1."));
+    IniChoice(f, "upscaler", T("Upscaler", "Апскейлер"), UpscalerChoices(GpuText()),
+              T("Temporal upscaling with the game's own motion vectors. FSR 4 needs a GPU with INT8 dot products; otherwise the "
+                "game falls back to FSR 3.1 by itself.",
+                "Временной апскейлинг с векторами движения игры. FSR 4 нужен GPU с INT8; иначе игра сама переключится на "
+                "FSR 3.1."));
     IniChoice(f, "preset", T("Quality preset", "Пресет"), PRESETS,
               T("Render scale per axis: Quality renders at 1/1.5 of the output size.",
                 "Масштаб рендера по каждой оси: Quality рисует в 1/1.5 размера вывода."));
@@ -905,40 +1070,6 @@ float Launcher::GraphicsPage(float x, float y, float w) {
     IniFlag(f, "object_motion", T("Object motion vectors", "Векторы движения объектов"),
             T("Less ghosting on characters, cloth and weapons; costs about 10% FPS.",
               "Меньше гостинга на персонажах и одежде; стоит около 10% FPS."));
-    f.Section(T("FSR 4 assets", "Ассеты FSR 4"));
-    {
-        const size_t total = Fsr4Files().size();
-        static double checked = -10;
-        static size_t missing = 0;
-        if (ui_.in.time - checked > 1.5 && !fsr4_busy_) missing = Fsr4Missing().size(), checked = ui_.in.time;
-        const std::string folder = PathText(PortDir() / L"fsr4_shaders");
-        const std::string text = missing == 0 ? Fmt(T("Installed: {} files in {}.", "Установлены: {} файлов в {}."),
-                                                     std::to_string(total), folder)
-                                              : Fmt(T("{} of {} files missing in {}.", "Нет {} из {} файлов в {}."),
-                                                    std::to_string(missing), std::to_string(total), folder);
-        f.y += ui_.Paragraph(text, x, f.y, std::min(w, 760.f), Style(14, TEXT)) + 10;
-        const std::string label = T("Download FSR 4 assets", "Скачать ассеты FSR 4");
-        if (ui_.Button("fsr4", label, Rect{x, f.y, ui_.ButtonWidth(label, true), 32}, {true, false, fsr4_busy_ || missing == 0})) {
-            fsr4_busy_ = true;
-            fsr4_done_ = 0, fsr4_total_ = missing;
-            Background([this] {
-                try {
-                    actions::DownloadFsr4([this](size_t done, size_t total) { fsr4_done_ = done, fsr4_total_ = total; });
-                } catch (const std::exception& error) {
-                    Notify(error.what(), true);
-                }
-                fsr4_busy_ = false;
-            });
-        }
-        f.y += 40;
-        if (fsr4_busy_) {
-            ui_.Progress(Rect{x, f.y, 420, 3}, fsr4_total_ ? float(fsr4_done_) / float(fsr4_total_) : 0.f);
-            f.y += 14;
-        }
-        f.Note(T("From FireBurn/Q2RTX on GitHub (built from AMD's MIT-licensed FidelityFX source), about 30 MB, into the "
-                 "fsr4_shaders folder of the port.",
-                 "С GitHub FireBurn/Q2RTX (собраны из MIT-исходников AMD FidelityFX), около 30 МБ, в папку fsr4_shaders порта."));
-    }
     f.Section(T("Detail", "Детализация"));
     IniChoice(f, "model_lod", T("Model detail (LOD)", "Детализация моделей"), LODS,
               T("A game patch (game version 1.09).", "Патч игры (версия 1.09)."));
@@ -971,6 +1102,10 @@ float Launcher::DisplayPage(float x, float y, float w) {
                 "1 — ровная подача кадров; больше может поднять FPS, если упирается в видеокарту."));
     f.Section(T("Window", "Окно"));
     AppFlag(f, "fullscreen", T("Fullscreen", "Полноэкранный режим"));
+    AppChoice(f, "display", T("Monitor", "Монитор"), DISPLAYS,
+              T("The monitor the game window (and fullscreen) opens on; numbered as Windows lists them, the list is in "
+                "the log.",
+                "Монитор, на котором открывается окно игры (и полный экран); номера — в порядке Windows, список в журнале."));
     AppChoice(f, "present_mode", T("Presentation", "Режим показа кадров"), PRESENT_MODES);
     AppFlag(f, "hdr", T("Allow HDR output", "Разрешить HDR"),
             T("When HDR is on in Windows and the display supports it.", "Если HDR включён в Windows и монитор его поддерживает."));

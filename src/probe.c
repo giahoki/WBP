@@ -125,6 +125,23 @@ static LONG fatal_exception(EXCEPTION_POINTERS *info) {
         fprintf(stderr,"Fault: exception 0x%08lx at %s (thread %lu)\n",record->ExceptionCode,where,GetCurrentThreadId());
     fprintf(stderr,"  rax=%016llx rbx=%016llx rcx=%016llx rdx=%016llx\n  rsi=%016llx rdi=%016llx rbp=%016llx rsp=%016llx\n",
             c->Rax,c->Rbx,c->Rcx,c->Rdx,c->Rsi,c->Rdi,c->Rbp,c->Rsp);
+    fprintf(stderr,"  r8 =%016llx r9 =%016llx r10=%016llx r11=%016llx\n  r12=%016llx r13=%016llx r14=%016llx r15=%016llx\n",
+            c->R8,c->R9,c->R10,c->R11,c->R12,c->R13,c->R14,c->R15);
+    /* Objects the registers point at, by their first word (a vtable names a C++ class, e.g.
+     * the recorded Vulkan command a fault in the driver came from). */
+    {
+        const struct { const char *name; DWORD64 value; } regs[]={
+            {"rbx",c->Rbx},{"rsi",c->Rsi},{"rdi",c->Rdi},{"r12",c->R12},{"r13",c->R13},{"r14",c->R14},{"r15",c->R15}};
+        for (size_t r=0; r<sizeof(regs)/sizeof(*regs); ++r) {
+            uintptr_t word=0;
+            SIZE_T got=0;
+            if (!regs[r].value || !ReadProcessMemory(GetCurrentProcess(),(void *)(uintptr_t)regs[r].value,&word,sizeof(word),&got) || got!=sizeof(word)) continue;
+            HMODULE module=NULL;
+            if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,(LPCSTR)word,&module) || !module) continue;
+            describe_address(where,sizeof(where),word);
+            fprintf(stderr,"  [%s] -> %s\n",regs[r].name,where);
+        }
+    }
     if (gpu_enabled) bbgpu_dump_guest_writes(info);
     /* rbp chain (guest and host code keep frame pointers). */
     uintptr_t rbp=(uintptr_t)c->Rbp;
@@ -610,6 +627,7 @@ int main(int argc, char **argv) {
     if (patch_file) apply_patches(patch_file, segments, ns, relocs, nr);
     if (!cpu_only) runtime_mouse_install(image);
     if (!cpu_only) runtime_input_install(image);
+    if (!cpu_only) bbgpu_game_menu_install(image, size);
 #ifdef _WIN32
     printf("Guest TCB loads redirected to the TEB TLS slot: %" PRIu64 "\n", patch_tcb_loads(segments, ns));
 #endif

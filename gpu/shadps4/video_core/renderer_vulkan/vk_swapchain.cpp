@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 #include "common/assert.h"
 #include "common/logging/log.h"
@@ -37,9 +38,16 @@ void Swapchain::Create(u32 width_, u32 height_) {
     height = height_;
     needs_recreation = false;
 
-    Destroy();
-
+    // wbp: a minimised window (Alt+Tab out of fullscreen) has a 0x0 surface, and the window may
+    // not have told us yet: no swapchain can have that extent. The old one stays (acquires fail
+    // and frames are skipped) until the window is back.
     SetSurfaceProperties();
+    if ((extent.width == 0 || extent.height == 0) && swapchain) {
+        needs_recreation = true;
+        return;
+    }
+
+    Destroy();
 
     const std::array queue_family_indices = {
         instance.GetGraphicsQueueFamilyIndex(),
@@ -117,10 +125,15 @@ bool Swapchain::AcquireNextImage() {
     case vk::Result::eErrorUnknown:
         needs_recreation = true;
         break;
+    case vk::Result::eErrorDeviceLost:
+        UNREACHABLE_MSG("Device lost while acquiring a swapchain image");
+        break;
     default:
-        LOG_CRITICAL(Render_Vulkan, "Swapchain acquire returned unknown result {}",
-                     vk::to_string(result));
-        UNREACHABLE();
+        // wbp: e.g. fullscreen exclusive mode lost on Alt+Tab: the frame is skipped and the
+        // swapchain made again instead of ending the game.
+        LOG_WARNING(Render_Vulkan, "Swapchain acquire returned {}; recreating it",
+                    vk::to_string(result));
+        needs_recreation = true;
         break;
     }
 
@@ -137,11 +150,16 @@ bool Swapchain::Present() {
     };
 
     auto result = instance.GetPresentQueue().presentKHR(present_info);
-    if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
+    if (result == vk::Result::eErrorDeviceLost) {
+        UNREACHABLE_MSG("Device lost while presenting");
+    } else if (result != vk::Result::eSuccess) {
+        // wbp: out of date, suboptimal, surface or fullscreen exclusive mode lost (Alt+Tab):
+        // the swapchain is made again.
+        if (result != vk::Result::eErrorOutOfDateKHR && result != vk::Result::eSuboptimalKHR) {
+            LOG_WARNING(Render_Vulkan, "Swapchain presentation returned {}; recreating it",
+                        vk::to_string(result));
+        }
         needs_recreation = true;
-    } else {
-        ASSERT_MSG(result == vk::Result::eSuccess, "Swapchain presentation failed: {}",
-                   vk::to_string(result));
     }
 
     frame_index = (frame_index + 1) % image_count;
@@ -188,6 +206,27 @@ void Swapchain::FindPresentFormat() {
     UNREACHABLE_MSG("Unable to find required swapchain format!");
 }
 
+void Swapchain::SetFrameGeneration(bool on) {
+    if (frame_generation == on) {
+        return;
+    }
+    frame_generation = on;
+    const vk::PresentModeKHR mode =
+        on && chosen_present_mode == vk::PresentModeKHR::eMailbox ? vk::PresentModeKHR::eFifo
+                                                                  : chosen_present_mode;
+    if (mode == present_mode) {
+        return;
+    }
+    // Mailbox replaces a frame queued within the same refresh and shows the rest out of step
+    // with it: interpolated frames were dropped or judder. FIFO shows every frame.
+    LOG_INFO(Render_Vulkan, "Frame generation {}: present mode {}", on ? "on" : "off",
+             vk::to_string(mode));
+    std::printf("Frame generation %s: present mode %s\n", on ? "on" : "off",
+                vk::to_string(mode).c_str());
+    present_mode = mode;
+    Recreate(width, height);
+}
+
 void Swapchain::FindPresentMode() {
     const auto [modes_result, modes] =
         instance.GetPhysicalDevice().getSurfacePresentModesKHR(surface);
@@ -195,6 +234,7 @@ void Swapchain::FindPresentMode() {
         LOG_ERROR(Render, "Failed to query available present modes, falling back to Fifo as "
                           "guaranteed supported option.");
         present_mode = vk::PresentModeKHR::eFifo;
+        chosen_present_mode = present_mode;
         return;
     }
 
@@ -218,6 +258,7 @@ void Swapchain::FindPresentMode() {
                     vk::to_string(present_mode), vk::to_string(fallback));
         present_mode = fallback;
     }
+    chosen_present_mode = present_mode;
 }
 
 void Swapchain::SetSurfaceProperties() {

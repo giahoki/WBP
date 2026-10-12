@@ -37,6 +37,8 @@ struct Frame {
     u64 ready_tick;
     bool is_hdr{false};
     u8 id{};
+    /// wbp: FSR 3 frame generation: the frame interpolated before this one, shown first.
+    Frame* generated{nullptr};
 
 };
 
@@ -132,6 +134,40 @@ private:
     std::vector<Frame> present_frames;
     std::queue<Frame*> free_queue;
     Frame* last_submit_frame;
+    /// wbp: frame generation pacing: when the last game frame was shown, and the mean interval.
+    std::chrono::steady_clock::time_point last_game_present{};
+    /// wbp: frame generation: this frame without the HUD, through the same passes as the frame.
+    Frame hudless_frame{};
+    /// wbp: the game's curve after the HUD, as a table for the HUD-less copy: samples of the
+    /// frame and of the copy without the table (two slots, read once the GPU is past them).
+    bool SampleHudless(vk::CommandBuffer cmdbuf, vk::Image frame_image, u32 width, u32 height,
+                       vk::Format format);
+    std::unique_ptr<VideoCore::Buffer> hudless_samples[2];
+    u64 hudless_sample_tick[2]{};
+    u32 hudless_sample_slot = 0, hudless_sample_frame = 0;
+    std::vector<float> hudless_histogram; ///< [channel][copy value][frame value]
+    std::unique_ptr<VideoCore::Buffer> hudless_lut;
+    /// The copy matched the frame outside the HUD in the last samples: only then is it handed
+    /// to FSR 3 (a mismatch makes it take the whole screen for HUD and show the real frame).
+    u32 hudless_good_samples = 0;
+    bool hudless_matches = false;
+    double game_interval_ms = 16.7;
+    /// wbp: when an interpolated frame was last shown (steady clock ticks).
+    static inline std::atomic<s64> frame_gen_shown{0};
+
+public:
+    /// wbp: frame generation showed a frame in the last quarter second (the frame limiter
+    /// holds the game to half the refresh rate meanwhile).
+    static bool FrameGenActive() {
+        const s64 shown = frame_gen_shown.load(std::memory_order_relaxed);
+        return shown != 0 &&
+               std::chrono::steady_clock::now().time_since_epoch().count() - shown <
+                   std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                       std::chrono::milliseconds(250))
+                       .count();
+    }
+
+private:
     std::mutex free_mutex;
     std::condition_variable free_cv;
     std::condition_variable_any frame_cv;

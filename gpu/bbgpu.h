@@ -36,6 +36,9 @@ int bbgpu_overlay_captures_input(void);
 int bbgpu_bench_press(void);
 /* Native mouse camera speed from the settings (wbp.ini, in-game menu); 1.0 default. */
 float bbgpu_mouse_sensitivity(void);
+/* The port's settings as pages of the game's System menu (wbp_game_menu.h): hooks installed while
+   the image is still writable. BB_GAME_MENU=0 leaves the menu as it is. */
+void bbgpu_game_menu_install(unsigned char *image, uint64_t size);
 /* Number of symbols registered by the vendored libraries (diagnostics). */
 unsigned bbgpu_symbol_count(void);
 #ifdef __cplusplus

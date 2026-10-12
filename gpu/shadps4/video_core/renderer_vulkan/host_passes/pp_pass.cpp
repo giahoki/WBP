@@ -23,6 +23,13 @@ void PostProcessingPass::Create(vk::Device device, const vk::Format surface_form
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eFragment,
         },
+        {
+            // wbp: 256 packed RGB entries (frame generation's HUD-less copy).
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        },
     };
 
     const vk::DescriptorSetLayoutCreateInfo desc_layout_ci{
@@ -182,7 +189,8 @@ void PostProcessingPass::Create(vk::Device device, const vk::Format surface_form
 }
 
 void PostProcessingPass::Render(vk::CommandBuffer cmdbuf, vk::ImageView input,
-                                vk::Extent2D input_size, Frame& frame, Settings settings) {
+                                vk::Extent2D input_size, Frame& frame, Settings settings,
+                                vk::Buffer lut) {
     if (EmulatorSettings.IsVkHostMarkersEnabled()) {
         cmdbuf.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
             .pLabelName = "Host/Post processing",
@@ -220,6 +228,8 @@ void PostProcessingPass::Render(vk::CommandBuffer cmdbuf, vk::ImageView input,
         .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 
+    ASSERT(lut); // always bound; read only with use_lut
+    const vk::DescriptorBufferInfo lut_info{.buffer = lut, .offset = 0, .range = LutBytes};
     const std::array set_writes{
         vk::WriteDescriptorSet{
             .dstSet = VK_NULL_HANDLE,
@@ -228,6 +238,14 @@ void PostProcessingPass::Render(vk::CommandBuffer cmdbuf, vk::ImageView input,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eCombinedImageSampler,
             .pImageInfo = &image_info,
+        },
+        vk::WriteDescriptorSet{
+            .dstSet = VK_NULL_HANDLE,
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo = &lut_info,
         },
     };
 

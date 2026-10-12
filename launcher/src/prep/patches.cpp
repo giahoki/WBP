@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <set>
@@ -57,8 +58,10 @@ const std::map<std::string, std::string> MODEL_LOD = {
 constexpr uint64_t SCENE_WIDTH = 0x02196A6B - EBOOT_BASE, SCENE_HEIGHT = 0x02196A7A - EBOOT_BASE,
                    UI_WIDTH = 0x02358554 - EBOOT_BASE, UI_HEIGHT = 0x0235855D - EBOOT_BASE;
 
-const std::set<std::string> BLOODBORNE_IDS = {"CUSA00207", "CUSA00208", "CUSA00900",
-                                              "CUSA01363", "CUSA03173", "CUSA03023"};
+// The retail releases (US EU UK JP AS), then the editions with The Old Hunters (US EU JP AS): all
+// run the same 1.09 executable.
+const std::set<std::string> BLOODBORNE_IDS = {"CUSA00900", "CUSA00207", "CUSA00208", "CUSA00299", "CUSA01363",
+                                              "CUSA03179", "CUSA03173", "CUSA03014", "CUSA03023"};
 
 using Ranges = std::vector<std::pair<uint64_t, uint64_t>>;
 using Writes = std::vector<std::pair<uint64_t, Bytes>>;
@@ -366,6 +369,26 @@ void CompilePatches(const PatchOptions& o) {
     const Settings settings = ReadSettings(o.settings);
     for (auto& n : EffectPatches(settings))
         if (std::find(names.begin(), names.end(), n) == names.end()) names.push_back(n);
+    auto add = [&](const char* n) {
+        if (std::find(names.begin(), names.end(), n) == names.end()) names.push_back(n);
+    };
+    auto env = [](const char* name) {
+        const char* v = std::getenv(name);
+        return std::string(v ? v : "");
+    };
+    // Above ~90 FPS the game's wall detector (a per-frame distance rule) halves sprint speed.
+    if (o.fps == "90" || o.fps == "uncap") add("Sprint Fix (High FPS)");
+    // Intel CPUs: the game code runs natively and Intel's approximate float instructions differ
+    // from the PS4's AMD CPU, so a tone mapping block gated on a computed flag never runs (black
+    // colors, mostly in DLC areas). On by default on Intel; BB_INTEL_TONEMAP_FIX=0/1 forces it.
+    const std::string intel_fix = env("BB_INTEL_TONEMAP_FIX");
+    if (intel_fix == "1" ||
+        (intel_fix != "0" && env("PROCESSOR_IDENTIFIER").find("GenuineIntel") != std::string::npos))
+        add("Intel Black Tonemap Fix");
+    // The title's PLAY ONLINE / PLAY OFFLINE dialog: offline play goes straight to the main menu.
+    // Kept for co-op (BB_ONLINE=1); BB_SKIP_NETWORK_CHOICE=0 always shows it.
+    if (env("BB_ONLINE") != "1" && env("BB_SKIP_NETWORK_CHOICE") != "0")
+        add("Skip Online/Offline Choice");
     ValidateRequirements(names, o.game);
     const Ranges segments = EbootLoadRanges(o.game);
     const pugi::xml_document doc = LoadXml(o.xml);

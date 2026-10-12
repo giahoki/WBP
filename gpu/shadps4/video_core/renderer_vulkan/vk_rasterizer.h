@@ -91,6 +91,20 @@ public:
         DrainDrawPipe();
         scheduler.WaitHostCopies();
     }
+    /// wbp: before a write into [address, address + size): waits only when a host copy may still
+    /// read it (Scheduler::WaitHostCopiesFor). BB_HOST_COPY_WAITS=all: always (the old behaviour).
+    void WaitHostCopiesFor(VAddr address, u64 size) {
+        DrainDrawPipe();
+        static const bool all = [] {
+            const char* env = std::getenv("BB_HOST_COPY_WAITS");
+            return env && std::string_view{env} == "all";
+        }();
+        if (all) {
+            scheduler.WaitHostCopies();
+        } else {
+            scheduler.WaitHostCopiesFor(address, size);
+        }
+    }
 
     /// wbp: GPU command thread: waits until the draw recording thread has recorded every
     /// draw handed to it (vk_draw_pipe.h); no-op on other threads.
@@ -333,6 +347,7 @@ private:
     u64 motion_geometry{};    ///< vertex-stream identity of the current direct draw
     bool gbuffer_draw = false;
     std::unique_ptr<TemporalUpscaler> upscaler; // wbp: FSR (docs/RENDER.md)
+    std::unique_ptr<class IndirectGuard> indirect_guard; ///< wbp: checked indirect dispatches (lazily)
     std::array<float, 2> draw_jitter{};         ///< viewport offset of the current draw, pixels
     std::array<float, 2> target_scale{1.0f, 1.0f}; ///< pass drawn into the upscaler's output-size images
     const bool host_markers_enabled;
@@ -490,6 +505,8 @@ private:
     u32 pending_checks = 0;
     u64 proxy_samples = 0; ///< texture bindings that read a scene proxy (statistics)
     float sampler_lod_bias = 0.0f; ///< wbp: extra bias of this draw's samplers
+    bool pipeline_is_compute = false; ///< wbp: the bound pipeline of BindResources
+    void ForceAnisotropy(AmdGpu::Sampler& sharp, bool is_depth) const;
     bool scene_debug_frame = false; ///< BB_SCENE_DEBUG: this frame's passes are printed
     bool PendingWriteOverlaps(VAddr address, u64 size);
     /// Stage B: the ring bindings of the stages of the packet being recorded.

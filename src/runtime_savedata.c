@@ -15,7 +15,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <ftw.h>
 #endif
 
@@ -75,7 +77,7 @@ static size_t mounts_done, memory_writes;
  * (e.g. the player's weapon sounds) never play. It is set before the game reads the save.
  * BB_SOUND_HACK=0 leaves saves untouched. */
 static void bloodborne_sound_hack(void) {
-    static const char *const ids[]={"CUSA00207","CUSA00208","CUSA00299","CUSA00900","CUSA01363","CUSA03014","CUSA03023","CUSA03173"};
+    static const char *const ids[]={"CUSA00207","CUSA00208","CUSA00299","CUSA00900","CUSA01363","CUSA03014","CUSA03023","CUSA03173","CUSA03179"};
     const char *env=getenv("BB_SOUND_HACK");
     if (env && env[0]=='0') return;
     int bloodborne=0;
@@ -120,10 +122,20 @@ static int valid_name(const char *name, size_t max) {
     for (size_t i=0;i<n;++i) if (name[i]=='/' || name[i]=='\\' || (name[i]=='.' && (i==0 || name[i-1]=='.'))) return 0;
     return 1;
 }
+/* A whole file replaced in one rename (a crash mid-write keeps the old one). */
+static int write_atomic(const char *path, const void *data, size_t size) {
+    char temp[760]; snprintf(temp,sizeof(temp),"%s.bbtmp",path);
+    FILE *f=fopen(temp,"wb");
+    if (!f) return -1;
+    int ok=fwrite(data,1,size,f)==size && !fflush(f) && !fsync(fileno(f));
+    ok=!fclose(f) && ok;
+    if (!ok || !MoveFileExA(temp,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)) { unlink(temp); return -1; }
+    return 0;
+}
 static void write_param(const char *meta, const Param *p) {
     char path[700]; snprintf(path,sizeof(path),"%s/param.bin",meta);
-    FILE *f=fopen(path,"wb");
-    if (f) { Param copy=*p; copy.mtime=time(NULL); fwrite(&copy,sizeof(copy),1,f); fclose(f); }
+    Param copy=*p; copy.mtime=time(NULL);
+    write_atomic(path,&copy,sizeof(copy));
 }
 static int read_param(const char *meta, Param *p) {
     char path[700]; snprintf(path,sizeof(path),"%s/param.bin",meta);
@@ -236,9 +248,7 @@ static ABI int32_t save_icon(const MountPoint *point, const Icon *icon) {
     int32_t r=ERR_NOT_MOUNTED;
     if (slot>=0) {
         char path[700]; snprintf(path,sizeof(path),"%s/icon0.png",slots[slot].meta);
-        FILE *f=fopen(path,"wb");
-        r=f && fwrite(icon->buffer,1,icon->data_size,f)==icon->data_size ? 0 : ERR_INTERNAL;
-        if (f) fclose(f);
+        r=write_atomic(path,icon->buffer,icon->data_size) ? ERR_INTERNAL : 0;
     }
     pthread_mutex_unlock(&lock);
     return r;

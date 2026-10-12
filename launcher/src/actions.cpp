@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <fstream>
 #include <regex>
+#include <mutex>
 #include <thread>
 
 #include <libdeflate.h>
@@ -422,6 +423,16 @@ void CleanUpdateLeftovers() {
     if (!running_from_update) fs::remove_all(dir, ec);  // what a finished update left behind
 }
 
+namespace {
+std::mutex gpu_lock;
+GpuInfo gpu_found;
+}  // namespace
+
+GpuInfo DetectedGpu() {
+    std::lock_guard g(gpu_lock);
+    return gpu_found;
+}
+
 std::string DetectGpu() {
     fs::path exe = PortDir() / L"bin" / L"bb-gpu-capabilities.exe";
     std::error_code ec;
@@ -434,7 +445,18 @@ std::string DetectGpu() {
     const int code = Capture(QuoteArg(exe.native()) + L" --live-resolution", out, err, 30000);
     for (std::string line : Split(err, '\n')) {
         if (!StartsWith(line, "GPU: ")) continue;
-        std::string name = Split(Split(line.substr(5), ':')[0], ',')[0];
+        // "GPU: NAME, discrete, 7949 MiB: ..."
+        const std::vector<std::string> parts = Split(Split(line.substr(5), ':')[0], ',');
+        std::string name = parts[0];
+        {
+            std::lock_guard g(gpu_lock);
+            gpu_found = {Trim(name), false, 0};
+            for (size_t i = 1; i < parts.size(); ++i) {
+                const std::string part = Trim(parts[i]);
+                if (part == "integrated") gpu_found.integrated = true;
+                if (part.find("MiB") != std::string::npos) try { gpu_found.vram_mib = std::stoi(part); } catch (...) {}
+            }
+        }
         return Fmt(T("✓ Graphics card: {}", "✓ Видеокарта: {}"), Trim(name));
     }
     if (code != 0 && code != -1)

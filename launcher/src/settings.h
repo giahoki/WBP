@@ -10,7 +10,7 @@
 
 #include "util.h"
 
-constexpr const char* VERSION = "1.3";  // GitHub release tag: the same digits (1.3 or v1.3)
+constexpr const char* VERSION = "1.5";  // GitHub release tag: the same digits (1.5 or v1.5)
 constexpr const char* PATCH_VERSION = "01.09";
 constexpr const char* COMMUNITY_SERVER = "https://thehuntersdream.com";
 constexpr const char* RELEASES_API = "https://api.github.com/repos/giahoki/WBP/releases/latest";
@@ -34,8 +34,8 @@ struct Choice {
     const char* value;
     Text title;
 };
-extern const std::vector<Choice> UPSCALERS, PRESETS, OUTPUTS, LIVE, INPUT_MODES, LODS, SHADOWS, FPS_MODES, PRESENT_MODES, LANGUAGES,
-    DRAW_PIPE, READBACKS, FRAME_CAPS, FRAMES_AHEAD;
+extern const std::vector<Choice> UPSCALERS, PRESETS, OUTPUTS, LIVE, INPUT_MODES, LODS, SHADOWS, FG_MODES, FPS_MODES, PRESENT_MODES, LANGUAGES,
+    DRAW_PIPE, READBACKS, FRAME_CAPS, FRAMES_AHEAD, DISPLAYS;
 
 struct KeyAction {
     const char* action;
@@ -82,7 +82,7 @@ struct App {
 
 // The game folder's title and version, or nothing without eboot.bin.
 struct GameInfo {
-    std::string title, version;
+    std::string title, version, id = "CUSA03173";
 };
 std::optional<GameInfo> ReadGameInfo(const fs::path& folder);
 

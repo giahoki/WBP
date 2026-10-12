@@ -102,6 +102,7 @@ private:
         s64 flip_arg;
         s32 index;
         bool eop;
+        s64 submitted = 0; ///< wbp: steady clock ticks when the frame was queued
 
         operator bool() const noexcept {
             return frame != nullptr;
@@ -129,6 +130,7 @@ private:
 
     std::mutex mutex;
     std::condition_variable request_cv; ///< wbp: a flip was queued (immediate flips)
+    std::condition_variable taken_cv;   ///< wbp: the present thread took a flip
     VideoOutPort main_port{};
     std::jthread present_thread;
     std::queue<Request> requests;

@@ -42,7 +42,8 @@ const std::vector<Flag> TWEAKS = {
     {"tweak_ragdoll", {"Dark Souls-style ragdoll physics (corpses fly further)", "Физика тел как в Dark Souls (тела отлетают дальше)"}, false},
 };
 
-const std::vector<Choice> UPSCALERS = {{"dlss", {"DLSS (NVIDIA GeForce RTX)"}},
+const std::vector<Choice> UPSCALERS = {{"auto", {"Auto (DLSS on GeForce RTX when installed, otherwise FSR 3.1)", "Авто (DLSS на GeForce RTX, если установлен, иначе FSR 3.1)"}},
+                                       {"dlss", {"DLSS (NVIDIA GeForce RTX)"}},
                                        {"fsr4", {"FSR 4 (best quality)", "FSR 4 (лучшее качество)"}},
                                        {"fsr411", {"FSR 4.1.1 (needs fsr4_411 assets)", "FSR 4.1.1 (нужны ассеты fsr4_411)"}},
                                        {"fsr3", {"FSR 3.1 (every GPU)", "FSR 3.1 (любая видеокарта)"}},
@@ -62,6 +63,8 @@ const std::vector<Choice> LODS = {{"0", {"As in the game", "Как в игре"}
                                   {"1", {"Lower (1)", "Ниже (1)"}}, {"2", {"Lowest (2)", "Минимальная (2)"}}};
 const std::vector<Choice> SHADOWS = {{"high", {"As in the game (2048)", "Как в игре (2048)"}},
                                      {"low", {"Low (1024, faster)", "Низкое (1024, быстрее)"}}};
+const std::vector<Choice> FG_MODES = {{"fixed", {"60 / 90 FPS"}},
+                                      {"half", {"Half the refresh rate", "Половина частоты монитора"}}};
 const std::vector<Choice> FPS_MODES = {{"uncap", {"Unlocked (frame-time patch)", "Без ограничения (патч)"}},
                                        {"60", {"60 FPS"}}, {"90", {"90 FPS"}},
                                        {"30", {"30 FPS (as on PS4)", "30 FPS (как на PS4)"}}};
@@ -82,6 +85,8 @@ const std::vector<Choice> FRAME_CAPS = {
     {"", {"Auto: display refresh, max 120 (recommended)", "Авто: частота монитора, макс. 120 (рекомендуется)"}},
     {"60", {"60"}}, {"90", {"90"}}, {"120", {"120"}}, {"144", {"144  ⚠"}}, {"165", {"165  ⚠"}},
     {"240", {"240  ⚠"}}, {"0", {"No limit  ⚠", "Без ограничения  ⚠"}}};
+const std::vector<Choice> DISPLAYS = {{"", {"Main (default)", "Основной (по умолчанию)"}}, {"1", {"1"}}, {"2", {"2"}},
+                                      {"3", {"3"}}, {"4", {"4"}}};
 const std::vector<Choice> FRAMES_AHEAD = {{"", {"1 (default)", "1 (по умолчанию)"}}, {"2", {"2"}},
                                           {"0", {"Unbounded", "Без ограничения"}}};
 
@@ -152,9 +157,9 @@ fs::path Ini::Path() { return HasEnv("BB_CONFIG") ? PathFrom(Env("BB_CONFIG")) :
 const std::map<std::string, std::string>& Ini::Defaults() {
     static const std::map<std::string, std::string> defaults = [] {
         std::map<std::string, std::string> d = {
-            {"upscaler", "fsr3"}, {"preset", "1"}, {"sharpen", "1"}, {"sharpness", "0.50"},
+            {"upscaler", "auto"}, {"preset", "1"}, {"sharpen", "1"}, {"sharpness", "0.50"},
             {"object_motion", "1"}, {"show_fps", "1"}, {"output_res", "1920x1080"}, {"model_lod", "0"},
-            {"shadow_quality", "high"},
+            {"shadow_quality", "high"}, {"frame_generation", "0"}, {"frame_generation_mode", "fixed"},
             {"live_resolution", "auto"}, {"mouse_sensitivity", "1.00"}, {"key_icons", "1"},
             {"input_mode", "native"}};
         for (auto* list : {&EFFECTS, &EXTRAS, &CHEATS, &TWEAKS})
@@ -167,7 +172,8 @@ const std::map<std::string, std::string>& Ini::Defaults() {
 }
 
 bool Ini::IsFlag(const std::string& key) {
-    static const std::vector<std::string> plain = {"sharpen", "object_motion", "show_fps", "key_icons"};
+    static const std::vector<std::string> plain = {"sharpen", "object_motion", "show_fps", "key_icons",
+                                                   "frame_generation"};
     if (std::find(plain.begin(), plain.end(), key) != plain.end()) return true;
     for (auto* list : {&EFFECTS, &EXTRAS, &CHEATS, &TWEAKS})
         for (const Flag& f : *list)
@@ -229,7 +235,7 @@ const nlohmann::json& App::Defaults() {
     static const nlohmann::json defaults = {
         {"ui_language", ""}, {"game_dir", PathText(PortDir().parent_path() / L"CUSA03173")}, {"user_dir", ""},
         {"mods_dir", ""}, {"mods_enabled", true}, {"patches_dir", ""}, {"language", "1"},
-        {"player_name", ""}, {"fullscreen", false}, {"hdr", false}, {"present_mode", "Mailbox"},
+        {"player_name", ""}, {"fullscreen", false}, {"display", ""}, {"hdr", false}, {"present_mode", "Mailbox"},
         {"fps_mode", "uncap"}, {"frame_cap", ""}, {"draw_pipe", ""}, {"readbacks", ""},
         {"frames_ahead", ""}, {"frame_stats", false}, {"gpu_profile", false},
         {"vk_validation", false}, {"extra_env", ""}, {"close_on_play", false},
@@ -282,7 +288,8 @@ std::optional<GameInfo> ReadGameInfo(const fs::path& folder) {
     try {
         auto sfo = prep::ReadSfo(folder / L"sce_sys" / L"param.sfo");
         std::string title = Trim(Replace(sfo.count("TITLE") ? sfo["TITLE"] : "Bloodborne", "™", ""));
-        return GameInfo{title, sfo.count("APP_VER") ? sfo["APP_VER"] : "?"};
+        return GameInfo{title, sfo.count("APP_VER") ? sfo["APP_VER"] : "?",
+                        sfo.count("TITLE_ID") ? sfo["TITLE_ID"] : "CUSA03173"};
     } catch (const Failure&) {
         return GameInfo{"Bloodborne", "?"};
     }
@@ -344,6 +351,7 @@ EnvBlock GameEnvironment(const App& app) {
     env.Set("BB_LANGUAGE", app.Str("language"));
     if (!Trim(app.Str("player_name")).empty()) env.Set("BB_USER_NAME", Trim(app.Str("player_name")));
     env.Set("BB_FULLSCREEN", app.On("fullscreen") ? "1" : "0");
+    if (!app.Str("display").empty()) env.Set("BB_DISPLAY", app.Str("display"));
     env.Set("BB_PRESENT_MODE", app.Str("present_mode"));
     if (app.On("hdr")) env.Set("BB_HDR", "1");
     env.Set("BB_FPS", app.Str("fps_mode"));

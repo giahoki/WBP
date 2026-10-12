@@ -190,6 +190,15 @@ int RunGame(std::vector<std::wstring> args) {
 
         // The eboot and the system modules cannot be modded: the image comes from the game itself.
         prep::BuildImage(game, out);
+        const std::string problem = prep::GameProblem(game);
+        if (problem == "patched_eboot")
+            throw Failure("eboot.bin is the 1.09 executable with a 60 FPS patch baked in (the gestures menu crashes the "
+                          "game): use the clean 1.09 eboot.bin; the port has its own frame rate patches. "
+                          "BB_SKIP_GAME_CHECK=1 skips this check.");
+        if (problem == "damaged_files")
+            throw Failure("The game files are damaged: the shaders in dvdroot_ps4/shader do not unpack, and the game "
+                          "would hang while loading them. Extract the game and the 1.09 update again with another "
+                          "tool. BB_SKIP_GAME_CHECK=1 skips this check.");
         prep::WriteContentProfile(game, out, Env("BB_CONTENT_SKU", "full"));
 
         // Patches exist for game version 01.09 only: other versions keep 30 FPS.

@@ -12,6 +12,7 @@
 #endif
 #include "common/assert.h"
 #include "wbp_bench.h"
+#include "wbp_settings.h"
 #include "wbp_toggles.h"
 #include "video_core/renderer_vulkan/vk_frame_capture.h"
 #include "common/debug.h"
@@ -291,6 +292,28 @@ int VideoOutDriver::ChangeBufferAttribute(VideoOutPort* port, s32 attributeIndex
 }
 
 void VideoOutDriver::Flip(const Request& req) {
+    // wbp: BB_FLIP_WAIT=1: how long finished frames waited for their flip slot (frame limit,
+    // frame generation's cap), printed every 5 s. That wait is input latency.
+    static const bool flip_wait = EmulatorSettingsImpl::Flag("BB_FLIP_WAIT", false);
+    if (flip_wait && req.submitted) {
+        using Clock = std::chrono::steady_clock;
+        static double total_ms = 0, worst_ms = 0;
+        static u32 count = 0;
+        static Clock::time_point printed = Clock::now();
+        const double ms = std::chrono::duration<double, std::milli>(
+                              Clock::now().time_since_epoch() - Clock::duration(req.submitted))
+                              .count();
+        total_ms += ms;
+        worst_ms = std::max(worst_ms, ms);
+        ++count;
+        if (Clock::now() - printed >= std::chrono::seconds(5)) {
+            std::printf("VideoOut: frames waited %.1f ms for their flip on average (worst %.1f)\n",
+                        total_ms / count, worst_ms);
+            printed = Clock::now();
+            total_ms = worst_ms = 0;
+            count = 0;
+        }
+    }
     // Update HDR status before presenting, then present the frame (wbp: on the swap thread).
     RunPresenter([this, frame = req.frame, hdr = req.port->is_hdr] {
         presenter->SetHDR(hdr);
@@ -572,16 +595,28 @@ void VideoOutDriver::SubmitFlipInternal(VideoOutPort* port, s32 index, s64 flip_
     }
 
     {
-        std::scoped_lock lock{mutex};
+        std::unique_lock lock{mutex};
         requests.push({
             .frame = frame,
             .port = port,
             .flip_arg = flip_arg,
             .index = index,
             .eop = is_eop,
+            .submitted = std::chrono::steady_clock::now().time_since_epoch().count(),
         });
     }
     request_cv.notify_one();
+    // wbp: with frame generation's frame cap a finished frame waited for its slot behind the
+    // one before (32 ms at 60 FPS: the game ran two frames ahead of the screen). The GPU thread
+    // now waits here until this frame is taken, so the next one is drawn after it and is ready
+    // shortly before its own slot.
+    if (Vulkan::Presenter::FrameGenActive()) {
+        std::unique_lock lock{mutex};
+        while (!requests.empty() &&
+               !taken_cv.wait_for(lock, std::chrono::milliseconds(100),
+                                  [this] { return requests.empty(); })) {
+        }
+    }
 }
 
 void VideoOutDriver::PresentThread(std::stop_token token) {
@@ -596,8 +631,23 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
     // wbp: frame limit (see EmulatorSettings::GetFrameLimit). A request waits in the queue
     // until its slot; slots advance by one period (no drift) but never lag behind by more.
     const u32 frame_limit = EmulatorSettings.GetFrameLimit();
-    const auto frame_period = frame_limit ? std::chrono::nanoseconds(1000000000 / frame_limit)
-                                          : std::chrono::nanoseconds(0);
+    const auto base_period = frame_limit ? std::chrono::nanoseconds(1000000000 / frame_limit)
+                                         : std::chrono::nanoseconds(0);
+    // wbp: frame generation shows two frames per game frame, at most one per display refresh:
+    // while it is active the game is capped (frame_generation_mode): "fixed" 60 FPS (90 from
+    // 180 Hz), "half" half the refresh rate (82 at 165 Hz). Faster game frames left the real
+    // frame on screen for a fraction of the interpolated one's time (6.5 / 3.5 ms at 100 FPS),
+    // which looked worse than no frame generation.
+    const auto frame_gen_period = [] {
+        const u32 refresh = std::max<u32>(BbDisplayRefreshHz(), 60);
+        if (BbSettings::Get().frame_generation_half) {
+            return std::chrono::nanoseconds(2'000'000'000ull / refresh);
+        }
+        return std::chrono::nanoseconds(1'000'000'000ull / (refresh >= 180 ? 90 : 60));
+    };
+    std::printf("VideoOut: with frame generation the game runs at %.0f FPS (display %u Hz)\n",
+                1e9 / double(frame_gen_period().count()), BbDisplayRefreshHz());
+    auto frame_period = base_period;
     auto next_flip = std::chrono::steady_clock::now();
     std::printf("VideoOut: vblank %u Hz, frame limit %u FPS\n",
                 EmulatorSettings.GetVblankFrequency(), frame_limit);
@@ -607,6 +657,7 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
         if (!requests.empty()) {
             const auto request = requests.front();
             requests.pop();
+            taken_cv.notify_all();
             return request;
         }
         return {};
@@ -629,10 +680,13 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
         // Check if it's time to take a request.
         auto& vblank_status = main_port.vblank_status;
         const auto now = std::chrono::steady_clock::now();
-        const bool flip_slot = !frame_limit || now >= next_flip;
+        frame_period = Vulkan::Presenter::FrameGenActive()
+                           ? std::max(base_period, frame_gen_period())
+                           : base_period;
+        const bool flip_slot = frame_period.count() == 0 || now >= next_flip;
         if (flip_slot && vblank_status.count % (main_port.flip_rate + 1) == 0) {
             const auto request = receive_request();
-            if (request && frame_limit) {
+            if (request && frame_period.count() != 0) {
                 next_flip = std::max(next_flip + frame_period, now - frame_period);
             }
             if (!request) {

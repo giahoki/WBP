@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/debug.h"
+#include "wbp_bench.h"
 #include "common/elf_info.h"
 #include "common/io_file.h"
 #include "common/path_util.h"
@@ -12,6 +13,7 @@
 #include "video_core/buffer_cache/buffer.h"
 #include "video_core/renderdoc.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
+#include "wbp_game_menu.h"
 #include "wbp_overlay.h"
 #include "video_core/renderer_vulkan/vk_temporal_upscaler.h"
 #include "video_core/renderer_vulkan/vk_presenter.h"
@@ -138,8 +140,10 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
     const vk::Device device = instance.GetDevice();
 
     // Create presentation frames.
-    present_frames.resize(num_images);
-    for (u32 i = 0; i < num_images; i++) {
+    // wbp: two more frames for frame generation (an interpolated and a real one per flip).
+    const u32 num_frames = num_images + 2;
+    present_frames.resize(num_frames);
+    for (u32 i = 0; i < num_frames; i++) {
         Frame& frame = present_frames[i];
         frame.id = i;
         auto fence = Check<"create present done fence">(
@@ -155,6 +159,18 @@ Presenter::Presenter(Frontend::WindowSDL& window_, AmdGpu::Liverpool* liverpool_
 
     fsr_pass.Create(device, instance.GetAllocator(), num_images);
     pp_pass.Create(device, swapchain.GetSurfaceFormat().format);
+    // wbp: frame generation's table for the HUD-less copy (identity until fitted).
+    hudless_lut = std::make_unique<VideoCore::Buffer>(instance, 0,
+                                                      HostPasses::PostProcessingPass::LutBytes,
+                                                      VideoCore::MemoryType::HostUncached,
+                                                      "HUD-less curve table");
+    {
+        u32* lut = reinterpret_cast<u32*>(hudless_lut->mapped_data.data());
+        for (u32 v = 0; v < 256; ++v) {
+            lut[v] = v | v << 8 | v << 16;
+        }
+        hudless_lut->Flush(0, HostPasses::PostProcessingPass::LutBytes);
+    }
     BbOverlay::Init(instance, swapchain.GetSurfaceFormat().format, num_images);
 
 }
@@ -173,6 +189,10 @@ Presenter::~Presenter() {
         vmaDestroyImage(instance.GetAllocator(), frame.image, frame.allocation);
         device.destroyImageView(frame.image_view);
         device.destroyFence(frame.present_done);
+    }
+    if (hudless_frame.image) {
+        vmaDestroyImage(instance.GetAllocator(), hudless_frame.image, hudless_frame.allocation);
+        device.destroyImageView(hudless_frame.image_view);
     }
 }
 
@@ -358,7 +378,17 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
     // as raw 32-bit pixels (menus and movies included; the upscaler dumps scene frames only).
     static const char* frame_dump_trigger = std::getenv("BB_FRAME_DUMP_TRIGGER");
     static int frame_dump_index = 0;
-    const bool frame_dump = frame_dump_trigger && std::remove(frame_dump_trigger) == 0;
+    // BB_FRAME_DUMP_COUNT=N: N frames in a row from the trigger (frame generation checks: two
+    // real frames and the interpolated one between them).
+    static int frame_dump_left = 0;
+    if (frame_dump_trigger && std::remove(frame_dump_trigger) == 0) {
+        const char* count = std::getenv("BB_FRAME_DUMP_COUNT");
+        frame_dump_left = std::max(count ? std::atoi(count) : 1, 1);
+    }
+    const bool frame_dump = frame_dump_left > 0;
+    if (frame_dump) {
+        --frame_dump_left;
+    }
     // wbp: scaled upscaler presets: the output-size display buffer drawn by the port.
     TemporalUpscaler::Display display{};
     const bool upscaled = rasterizer->GetUpscaler().DisplayOverride(cpu_address, display);
@@ -453,7 +483,7 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
     // the post process pass still sRGB encoded and has to be decoded there instead.
     pp_settings.srgb_input =
         attribute.attrib.pixel_format == Libraries::VideoOut::PixelFormat::A2R10G10B10Srgb;
-    pp_pass.Render(cmdbuf, image_view, image_size, *frame, pp_settings);
+    pp_pass.Render(cmdbuf, image_view, image_size, *frame, pp_settings, hudless_lut->Handle());
     if (frame_dump) {
         // The presented image as the swapchain blit reads it (General after the pass).
         const vk::MemoryBarrier2 done{.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
@@ -466,9 +496,112 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
         ++frame_dump_index;
     }
 
+    // wbp: FSR 3 frame generation: the frame between the last one and this one, into a second
+    // presenter frame that Present shows first.
+    frame->generated = nullptr;
+    if (auto& frame_gen = rasterizer->GetUpscaler().FrameGen(); frame_gen.Enabled()) {
+        // The frame before the HUD, through the same passes, so that only the HUD differs.
+        vk::Image hudless{};
+        TemporalUpscaler::Hudless hud{};
+        if (rasterizer->GetUpscaler().TakeHudless(hud) && FrameGeneration::UseHudless()) {
+            const auto srgb = [](vk::Format f) {
+                return f == vk::Format::eR8G8B8A8Unorm   ? vk::Format::eR8G8B8A8Srgb
+                       : f == vk::Format::eB8G8R8A8Unorm ? vk::Format::eB8G8R8A8Srgb
+                                                         : f;
+            };
+            const bool srgb_view = view_info.format == vk::Format::eR8G8B8A8Srgb ||
+                                   view_info.format == vk::Format::eB8G8R8A8Srgb;
+            const vk::Format hud_view_format =
+                hud.display_buffer ? view_info.format : srgb_view ? srgb(hud.format) : hud.format;
+            const auto device = instance.GetDevice();
+            const vk::ImageView hud_view = Check(device.createImageView({
+                .image = hud.image,
+                .viewType = vk::ImageViewType::e2D,
+                .format = hud_view_format,
+                // The game's finished-frame target holds red and blue the other way round from
+                // the display buffer (its display pass swaps them); measured equal otherwise.
+                .components = hud.display_buffer
+                                  ? vk::ComponentMapping{vk::ComponentSwizzle::eIdentity,
+                                                         vk::ComponentSwizzle::eIdentity,
+                                                         vk::ComponentSwizzle::eIdentity,
+                                                         vk::ComponentSwizzle::eOne}
+                                  : vk::ComponentMapping{vk::ComponentSwizzle::eB,
+                                                         vk::ComponentSwizzle::eG,
+                                                         vk::ComponentSwizzle::eR,
+                                                         vk::ComponentSwizzle::eOne},
+                .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1},
+            }));
+            draw_scheduler.DeferOperation([device, hud_view] { device.destroyImageView(hud_view); });
+            if (hudless_frame.width != frame->width || hudless_frame.height != frame->height ||
+                hudless_frame.is_hdr != frame->is_hdr || !hudless_frame.image) {
+                device.waitIdle(); // only when the window size changes
+                RecreateFrame(&hudless_frame, frame->width, frame->height);
+            }
+            const vk::ImageMemoryBarrier2 to_target{
+                .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+                .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+                .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                .oldLayout = vk::ImageLayout::eUndefined,
+                .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .image = hudless_frame.image,
+                .subresourceRange = frame_subresources,
+            };
+            cmdbuf.pipelineBarrier2({.imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &to_target});
+            const vk::Extent2D hud_size{hud.width, hud.height};
+            const vk::ImageView passed = fsr_pass.Render(cmdbuf, hud_view, hud_size,
+                                                         {frame->width, frame->height},
+                                                         fsr_settings, frame->is_hdr);
+            auto hud_pp = pp_settings;
+            // Every 15 frames the copy is drawn without the table first and sampled.
+            if (++hudless_sample_frame % 15 == 0) {
+                pp_pass.Render(cmdbuf, passed, hud_size, hudless_frame, hud_pp,
+                               hudless_lut->Handle());
+                if (SampleHudless(cmdbuf, frame->image, frame->width, frame->height,
+                                  swapchain.GetSurfaceFormat().format)) {
+                    cmdbuf.pipelineBarrier2(
+                        {.imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &to_target});
+                }
+            }
+            hud_pp.use_lut = 1;
+            pp_pass.Render(cmdbuf, passed, hud_size, hudless_frame, hud_pp, hudless_lut->Handle());
+            hudless = hudless_frame.image;
+        }
+        // The copy is only used once it is known to match the frame outside the HUD: with a
+        // brightness mismatch FSR 3 takes every pixel for HUD and the interpolated frame is
+        // the real one (the counter doubled, the motion did not get smoother).
+        const vk::Image hudless_rendered = hudless;
+        if (!hudless_matches) {
+            hudless = vk::Image{};
+        }
+        Frame* generated = GetRenderFrame();
+        if (generated->width == frame->width && generated->height == frame->height &&
+            frame_gen.Generate(cmdbuf, frame->image, swapchain.GetSurfaceFormat().format,
+                               frame->width, frame->height, generated->image, hudless)) {
+            frame->generated = generated;
+        } else {
+            std::scoped_lock fl{free_mutex};
+            free_queue.push(generated);
+            free_cv.notify_one();
+        }
+        if (frame->generated && frame_dump) {
+            DumpRaw(instance, draw_scheduler, cmdbuf, generated->image, vk::ImageLayout::eGeneral,
+                    frame->width, frame->height, "generated", frame_dump_index - 1);
+            if (hudless_rendered) {
+                DumpRaw(instance, draw_scheduler, cmdbuf, hudless_rendered,
+                        vk::ImageLayout::eGeneral, frame->width, frame->height, "hudless",
+                        frame_dump_index - 1);
+            }
+        }
+    }
+
     // Flush frame creation commands.
     frame->ready_semaphore = draw_scheduler.GetWorkSemaphore()->Handle();
     frame->ready_tick = draw_scheduler.CurrentTick();
+    if (frame->generated) {
+        frame->generated->ready_semaphore = frame->ready_semaphore;
+        frame->generated->ready_tick = frame->ready_tick;
+    }
     SubmitInfo info{};
     draw_scheduler.Flush(info);
 
@@ -568,6 +701,36 @@ Frame* Presenter::PrepareBlankFrame(bool present_thread) {
 }
 
 void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame) {
+    // wbp: FSR 3 frame generation: the interpolated frame now, this one half a game frame later
+    // (the mean interval between game frames).
+    if (Frame* generated = std::exchange(frame->generated, nullptr)) {
+        // Both images are finished by the same submission. When the GPU is the limit, the
+        // presents were queued long before it got there: both images became ready at once and
+        // the real frame replaced the interpolated one (mailbox), so the counter rose and the
+        // picture did not get smoother. The spacing is therefore counted from when the GPU has
+        // finished them.
+        const vk::SemaphoreWaitInfo ready_info{
+            .semaphoreCount = 1,
+            .pSemaphores = &frame->ready_semaphore,
+            .pValues = &frame->ready_tick,
+        };
+        while (instance.GetDevice().waitSemaphores(ready_info, 1'000'000'000ull) ==
+               vk::Result::eTimeout) {
+        }
+        // Counted from when the interpolated frame was queued (its acquire can block for a few
+        // ms): both frames then get the same spacing on screen.
+        Present(generated, false, false);
+        const auto shown = std::chrono::steady_clock::now();
+        frame_gen_shown.store(shown.time_since_epoch().count(), std::memory_order_relaxed);
+        // Half a game frame, and about one display refresh at least: the game runs at half the
+        // refresh rate meanwhile (VideoOutDriver), so both frames get the same time on screen
+        // whether the driver keeps FIFO or forces V-Sync off.
+        const double refresh_ms = 1000.0 / double(BbDisplayRefreshHz());
+        const double hold_ms = std::max(game_interval_ms * 0.5, refresh_ms - 0.25);
+        std::this_thread::sleep_until(
+            shown + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                        std::chrono::duration<double, std::milli>(hold_ms)));
+    }
     // Free the frame for reuse
     const auto free_frame = [&] {
         if (!is_reusing_frame) {
@@ -584,6 +747,9 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
         free_frame();
         return;
     }
+
+    // wbp: frame generation presents through FIFO (see Swapchain::SetFrameGeneration).
+    swapchain.SetFrameGeneration(rasterizer->GetUpscaler().FrameGen().Enabled());
 
     // Recreate the swapchain if the window was resized.
     if (window.GetWidth() != swapchain.GetWidth() || window.GetHeight() != swapchain.GetHeight()) {
@@ -665,6 +831,7 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
                          vk::ImageLayout::eTransferDstOptimal,
                          MakeImageBlitFit(frame->width, frame->height, extent.width, extent.height),
                          vk::Filter::eLinear);
+        BbGameMenu::Poll(); // the port's pages in the game's System menu
         // wbp: the settings menu / FPS counter over the frame, at display resolution.
         const bool overlay = BbOverlay::Visible();
         const std::array post_barriers{
@@ -734,9 +901,140 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
     }
 
     free_frame();
+    BbStats::presents.fetch_add(1, std::memory_order_relaxed);
+    BbBench::OnPresent();
     if (!is_reusing_frame && is_game_frame) {
         DebugState.IncFlipFrameNum();
+        const auto now = std::chrono::steady_clock::now();
+        if (last_game_present.time_since_epoch().count() != 0) {
+            const double ms =
+                std::chrono::duration<double, std::milli>(now - last_game_present).count();
+            game_interval_ms = std::clamp(game_interval_ms * 0.9 + ms * 0.1, 4.0, 50.0);
+        }
+        last_game_present = now;
     }
+}
+
+// The game's final pass maps every encoded value through a curve after the HUD (its brightness
+// setting; measured exact per value and channel); the HUD-less copy is taken before it. Every
+// 15 frames a block of the frame and of the copy drawn without the table is read back; the
+// value pairs fill a histogram per channel and each value maps to the most frequent result. FSR 3
+// takes every pixel that differs between the copy and the frame for HUD (the darkest by a single
+// step), so a fitted power curve was not close enough: the whole frame came out as the real one.
+bool Presenter::SampleHudless(vk::CommandBuffer cmdbuf, vk::Image frame_image, u32 width,
+                              u32 height, vk::Format format) {
+    constexpr u32 Side = 256;
+    if (width < 2 * Side || height < 2 * Side) {
+        return false;
+    }
+    constexpr u64 Bytes = u64(Side) * Side * 4;
+    const u32 slot = hudless_sample_slot;
+    hudless_sample_slot ^= 1;
+    auto& buffer = hudless_samples[slot];
+    if (buffer && hudless_sample_tick[slot] != 0 &&
+        draw_scheduler.GetWorkSemaphore()->IsFree(hudless_sample_tick[slot])) {
+        buffer->Invalidate(0, 2 * Bytes);
+        const u8* frame_px = buffer->mapped_data.data();
+        const u8* copy_px = frame_px + Bytes;
+        if (hudless_histogram.empty()) {
+            hudless_histogram.assign(3 * 256 * 256, 0.0f);
+        }
+        for (float& count : hudless_histogram) {
+            count *= 0.5f; // follows a change of the game's brightness setting
+        }
+        for (u64 i = 0; i < Bytes; i += 4) {
+            for (u32 c = 0; c < 3; ++c) {
+                hudless_histogram[(c * 256 + copy_px[i + c]) * 256 + frame_px[i + c]] += 1.0f;
+            }
+        }
+        // Per memory channel: the most frequent result, values never seen interpolated.
+        std::array<std::array<u8, 256>, 3> table{};
+        for (u32 c = 0; c < 3; ++c) {
+            std::array<int, 256> best{};
+            for (u32 v = 0; v < 256; ++v) {
+                const float* row = &hudless_histogram[(c * 256 + v) * 256];
+                const auto top = std::max_element(row, row + 256);
+                best[v] = *top >= 1.0f ? int(top - row) : -1;
+            }
+            int last = -1;
+            for (int v = 0; v < 256; ++v) {
+                if (best[v] < 0) {
+                    continue;
+                }
+                for (int u = last + 1; u < v; ++u) {
+                    table[c][u] = last < 0 ? u8(best[v])
+                                           : u8(std::lround(best[last] + float(best[v] - best[last]) *
+                                                                             float(u - last) /
+                                                                             float(v - last)));
+                }
+                table[c][v] = u8(best[v]);
+                last = v;
+            }
+            for (int u = last + 1; u < 256; ++u) {
+                table[c][u] = last < 0 ? u8(u) : u8(best[last]);
+            }
+        }
+        // How much of this sample the table reproduces exactly (the rest is HUD or subtitles).
+        u64 exact = 0;
+        for (u64 i = 0; i < Bytes; i += 4) {
+            exact += table[0][copy_px[i]] == frame_px[i] && table[1][copy_px[i + 1]] == frame_px[i + 1] &&
+                     table[2][copy_px[i + 2]] == frame_px[i + 2];
+        }
+        const double share = double(exact) / double(Side * Side);
+        // The shader reads R, G, B of the view: memory order B, G, R for the BGRA formats.
+        const bool bgra = format == vk::Format::eB8G8R8A8Unorm || format == vk::Format::eB8G8R8A8Srgb;
+        const u32 r = bgra ? 2 : 0, b = bgra ? 0 : 2;
+        u32* lut = reinterpret_cast<u32*>(hudless_lut->mapped_data.data());
+        for (u32 v = 0; v < 256; ++v) {
+            lut[v] = u32(table[r][v]) | u32(table[1][v]) << 8 | u32(table[b][v]) << 16;
+        }
+        hudless_lut->Flush(0, HostPasses::PostProcessingPass::LutBytes);
+        // Two good samples in a row switch the copy on, one bad one off.
+        const bool good = share > 0.9;
+        hudless_good_samples = good ? hudless_good_samples + 1 : 0;
+        const bool matches = hudless_good_samples >= 2;
+        if (matches != hudless_matches) {
+            std::printf("Frame generation: HUD-less copy %s (%.1f%% exact)\n",
+                        matches ? "matches the frame; interpolating without the HUD"
+                                : "differs from the frame; interpolating the whole frame",
+                        share * 100.0);
+            hudless_matches = matches;
+        }
+        hudless_sample_tick[slot] = 0;
+    }
+    if (!buffer) {
+        buffer = std::make_unique<VideoCore::Buffer>(instance, 0, 2 * Bytes,
+                                                     VideoCore::MemoryType::HostCached,
+                                                     "HUD-less curve samples");
+    }
+    const vk::MemoryBarrier2 before{
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+    };
+    cmdbuf.pipelineBarrier2({.memoryBarrierCount = 1, .pMemoryBarriers = &before});
+    const vk::Offset3D at{s32(width / 2 - Side / 2), s32(height / 2 - Side / 4), 0};
+    for (u32 i = 0; i < 2; ++i) {
+        const vk::BufferImageCopy region{
+            .bufferOffset = i * Bytes,
+            .imageSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+            .imageOffset = at,
+            .imageExtent = {Side, Side, 1},
+        };
+        cmdbuf.copyImageToBuffer(i == 0 ? frame_image : hudless_frame.image,
+                                 vk::ImageLayout::eGeneral, buffer->Handle(), region);
+    }
+    const vk::MemoryBarrier2 after{
+        .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite | vk::AccessFlagBits2::eTransferRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite |
+                         vk::AccessFlagBits2::eHostRead,
+    };
+    cmdbuf.pipelineBarrier2({.memoryBarrierCount = 1, .pMemoryBarriers = &after});
+    hudless_sample_tick[slot] = draw_scheduler.CurrentTick();
+    return true;
 }
 
 Frame* Presenter::GetRenderFrame() {

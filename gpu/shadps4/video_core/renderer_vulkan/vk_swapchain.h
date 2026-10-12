@@ -87,6 +87,9 @@ public:
     }
 
     void SetHDR(bool hdr);
+    /// wbp: frame generation on: mailbox becomes FIFO (each frame shown for whole refreshes,
+    /// VRR kept); off: the chosen mode again. Recreates the swapchain when it changes.
+    void SetFrameGeneration(bool on);
 
     bool GetHDR() const {
         return needs_hdr;
@@ -119,6 +122,8 @@ private:
     vk::SurfaceFormatKHR surface_format;
     vk::Format view_format;
     vk::PresentModeKHR present_mode;
+    vk::PresentModeKHR chosen_present_mode{}; ///< wbp: the setting's mode (FindPresentMode)
+    bool frame_generation = false;
     vk::Extent2D extent;
     vk::SurfaceTransformFlagBitsKHR transform;
     vk::CompositeAlphaFlagBitsKHR composite_alpha;

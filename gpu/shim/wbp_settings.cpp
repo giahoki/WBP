@@ -26,6 +26,10 @@ void Set(Values& v, const std::string& key, const std::string& value) {
     const float f = float(std::atof(value.c_str()));
     const int i = std::atoi(value.c_str());
     if (key == "upscaler") {
+        v.upscaler_auto = value == "auto";
+        if (v.upscaler_auto) {
+            v.upscaler = UpscalerDlss; // FSR 3.1 when DLSS is unavailable (ConfigureDlssSupport)
+        }
         for (int u = 0; u < UpscalerCount; ++u) {
             if (value == UpscalerName(u)) {
                 v.upscaler = u;
@@ -43,6 +47,10 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         v.reactive = i != 0;
     } else if (key == "object_motion") {
         v.object_motion = i != 0;
+    } else if (key == "frame_generation") {
+        v.frame_generation = i != 0;
+    } else if (key == "frame_generation_mode") {
+        v.frame_generation_half = value == "half";
     } else if (key == "reactive_scale") {
         v.reactive_scale = Clamp(f, 0.0f, 16.0f);
     } else if (key == "reactive_threshold") {
@@ -109,6 +117,7 @@ void Load() {
     // Environment overrides (scripts, A/B tests).
     if (const char* env = std::getenv("BB_UPSCALER")) {
         v.upscaler = UpscalerOff;
+        v.upscaler_auto = false;
         for (int u = 0; u < UpscalerCount; ++u) {
             if (std::strcmp(env, UpscalerName(u)) == 0) v.upscaler = u;
         }
@@ -118,6 +127,7 @@ void Load() {
         {"BB_REACTIVE", "reactive"},              {"BB_REACTIVE_SCALE", "reactive_scale"},
         {"BB_REACTIVE_THRESHOLD", "reactive_threshold"}, {"BB_REACTIVE_MAX", "reactive_max"},
         {"BB_UPSCALE_PRESET", "preset"},            {"BB_OBJECT_MOTION", "object_motion"},
+        {"BB_FRAME_GEN", "frame_generation"},
         {"BB_MOUSE_SENS", "mouse_sensitivity"},
     };
     for (const auto& [env, key] : env_keys) {
@@ -158,9 +168,12 @@ void ConfigureDlssSupport(bool available, const char* problem) {
     kept = problem ? problem : "";
     v.dlss_problem = available || kept.empty() ? nullptr : kept.c_str();
     if (v.upscaler == UpscalerDlss && !available) {
-        std::printf("Upscaler: DLSS unavailable (%s); falling back to FSR 3.1\n",
+        std::printf("Upscaler: %s (%s); falling back to FSR 3.1\n",
+                    v.upscaler_auto ? "auto: DLSS unavailable" : "DLSS unavailable",
                     kept.empty() ? "wbp_dlss.dll or nvngx_dlss.dll missing" : kept.c_str());
         v.upscaler = UpscalerFsr3;
+    } else if (v.upscaler_auto && v.upscaler == UpscalerDlss) {
+        std::printf("Upscaler: auto: DLSS\n");
     }
 }
 
@@ -207,12 +220,13 @@ void Save() {
     std::fprintf(file,
                  "# wbp settings (in-game menu: Insert / L3+R3)\n"
                  "upscaler=%s\npreset=%d\nsharpen=%d\nsharpness=%.2f\njitter=%d\n"
-                 "reactive=%d\nobject_motion=%d\nreactive_scale=%.2f\nreactive_threshold=%.2f\nreactive_max=%.2f\n"
+                 "reactive=%d\nobject_motion=%d\nframe_generation=%d\nreactive_scale=%.2f\nreactive_threshold=%.2f\nreactive_max=%.2f\n"
                  "debug_view=%d\nshow_fps=%d\nfsr4_auto_exposure=%d\nfsr4_invert_jitter=%d\n"
                  "mouse_sensitivity=%.2f\n",
-                 UpscalerName(v.upscaler), v.preset.load(), int(v.sharpen.load()),
+                 v.upscaler_auto ? "auto" : UpscalerName(v.upscaler), v.preset.load(),
+                 int(v.sharpen.load()),
                  v.sharpness.load(), int(v.jitter.load()), int(v.reactive.load()),
-                 int(v.object_motion.load()),
+                 int(v.object_motion.load()), int(v.frame_generation.load()),
                  v.reactive_scale.load(), v.reactive_threshold.load(), v.reactive_max.load(),
                  v.debug_view.load(), int(v.show_fps.load()),
                  int(v.fsr4_auto_exposure.load()), int(v.fsr4_invert_jitter.load()),
@@ -221,6 +235,7 @@ void Save() {
     for (int e = 0; e < EffectCount; ++e) {
         std::fprintf(file, "%s=%d\n", Effects[e].key, int(v.effects[e].load()));
     }
+    std::fprintf(file, "frame_generation_mode=%s\n", v.frame_generation_half ? "half" : "fixed");
     std::fprintf(file, "model_lod=%d\nshadow_quality=%s\noutput_res=%dx%d\n", v.model_lod.load(),
                  v.low_shadows ? "low" : "high", OutputWidths[v.output_res],
                  OutputHeights[v.output_res]);

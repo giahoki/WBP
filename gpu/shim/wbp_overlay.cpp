@@ -181,6 +181,7 @@ void Menu() {
                 : i == BbSettings::UpscalerDlss   ? s.dlss_supported.load() : true;
             ImGui::BeginDisabled(!supported);
             if (ImGui::Selectable(upscalers[i], i == upscaler)) {
+                s.upscaler_auto = false;
                 Store(s.upscaler, i, true);
             }
             ImGui::EndDisabled();
@@ -358,6 +359,19 @@ void Menu() {
         ImGui::EndCombo();
     }
     Checkbox("Низкое разрешение теней (1024, быстрее)", s.low_shadows);
+    Checkbox("Генерация кадров FSR 3 (сразу, x2 FPS на экране)", s.frame_generation);
+    {
+        static const char* modes[] = {"60 / 90 FPS", "Половина частоты монитора"};
+        const int mode = s.frame_generation_half ? 1 : 0;
+        if (ImGui::BeginCombo("Лимит FPS с генерацией", modes[mode])) {
+            for (int i = 0; i < 2; ++i) {
+                if (ImGui::Selectable(modes[i], i == mode)) {
+                    Store(s.frame_generation_half, i == 1, true);
+                }
+            }
+            ImGui::EndCombo();
+        }
+    }
     for (int e = 0; e < BbSettings::EffectCount; ++e) {
         Checkbox(BbSettings::Effects[e].label, s.effects[e]);
     }
@@ -395,7 +409,21 @@ void Menu() {
     if (ImGui::Button("Закрыть")) {
         keep_open = false;
     }
+    // Leaving the game from the pad (this menu opens with L3+R3). A second press confirms; the
+    // window thread then closes like the window's own close button.
+    static bool quit_armed;
     ImGui::SameLine();
+    if (ImGui::Button(quit_armed ? "Нажмите ещё раз для выхода" : "Выйти из игры")) {
+        if (quit_armed) {
+            SDL_Event quit{};
+            quit.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quit);
+        }
+        quit_armed = !quit_armed;
+    }
+    if (quit_armed && !ImGui::IsItemFocused() && !ImGui::IsItemHovered()) {
+        quit_armed = false;
+    }
     ImGui::TextDisabled("Настройки сохраняются в wbp.ini");
     ImGui::End();
     if (!keep_open) {
@@ -439,14 +467,16 @@ void FpsCounter() {
                      ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
                      ImGuiWindowFlags_NoFocusOnAppearing);
     const auto& s = BbSettings::Get();
-    ImGui::Text("%.0f FPS  %.1f мс  %s", frame_ms_avg > 0.0f ? 1000.0f / frame_ms_avg : 0.0f,
+    // With frame generation the readout counts the frames on screen (half are generated).
+    ImGui::Text("%.0f FPS  %.1f мс  %s%s", frame_ms_avg > 0.0f ? 1000.0f / frame_ms_avg : 0.0f,
                 frame_ms_avg,
                 s.upscaler == BbSettings::UpscalerFsr3   ? "FSR 3.1"
                 : s.upscaler == BbSettings::UpscalerFsr4 ? "FSR 4"
                 : s.upscaler == BbSettings::UpscalerFsr411 ? "FSR 4.1.1"
                 : s.upscaler == BbSettings::UpscalerTaa ? "TAA"
                 : s.upscaler == BbSettings::UpscalerDlss ? "DLSS"
-                                                         : "");
+                                                         : "",
+                s.frame_generation ? " + FG" : "");
     ImGui::End();
 }
 

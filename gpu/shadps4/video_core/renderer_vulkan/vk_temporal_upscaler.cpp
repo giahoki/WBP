@@ -161,6 +161,7 @@ TemporalUpscaler::TemporalUpscaler(const Instance& instance_, Scheduler& schedul
                                    CameraMotion& camera_motion_, SceneTargets& scene_targets_)
     : instance{instance_}, scheduler{scheduler_}, texture_cache{texture_cache_},
       runtime{runtime_}, camera_motion{camera_motion_}, scene_targets{scene_targets_} {
+    frame_generation = std::make_unique<FrameGeneration>(instance);
     // Reject unsupported shaders before allocating resources or recording a frame.
     BbSettings::ConfigureUpscalerSupport(instance.IsFsr4Int8Supported(),
                                          instance.IsFsr411Supported());
@@ -338,6 +339,7 @@ bool TemporalUpscaler::OnFrameStart() {
     ui_phase = false;
     ui_read_barrier = false;
     done_this_frame = false;
+    hudless_this_frame = false;
     ldr_target = {};
     scene_color = {};
     snapshot_taken = false;
@@ -1165,6 +1167,13 @@ void TemporalUpscaler::Run() {
         }
     }
     if (dispatched) {
+        {
+            const float fg_sign = BbToggle::Disabled(1u << 26) ? -1.0f : 1.0f;
+            frame_generation->Capture(cmdbuf, input_depth, depth_format, vk::Image(motion_image),
+                                      w, h, {fg_sign * jitter[0], fg_sign * jitter[1]},
+                                      camera_motion.Near(), camera_motion.VerticalFov(), frame_ms,
+                                      reset);
+        }
         reset = false;
         dispatched_last_frame = true;
         if (BbSettings::Get().upscaler != BbSettings::UpscalerTaa) {
@@ -1301,8 +1310,122 @@ void TemporalUpscaler::OnColorTarget(VideoCore::ImageId color) {
     }
 }
 
+bool TemporalUpscaler::EnsureHudless(u32 w, u32 h, vk::Format format, bool same_as_display) {
+    const auto device = instance.GetDevice();
+    if (!hudless_image || w != hudless_width || h != hudless_height || format != hudless_format ||
+        same_as_display != hudless_display) {
+        if (hudless_image) {
+            device.waitIdle();
+        }
+        hudless_image = VideoCore::UniqueImage(device, instance.GetAllocator());
+        hudless_image.Create(vk::ImageCreateInfo{
+            .flags = vk::ImageCreateFlagBits::eMutableFormat,
+            .imageType = vk::ImageType::e2D,
+            .format = format,
+            .extent = {w, h, 1},
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = vk::SampleCountFlagBits::e1,
+            .tiling = vk::ImageTiling::eOptimal,
+            .usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst,
+        });
+        hudless_width = w;
+        hudless_height = h;
+        hudless_format = format;
+        hudless_display = same_as_display;
+        std::printf("Frame generation: HUD-less copy %ux%u %s (%s)\n", w, h,
+                    vk::to_string(format).c_str(),
+                    same_as_display ? "the displayed image" : "the game's finished frame");
+    }
+    return true;
+}
+
+/// Copies `src` (in `src_layout`) into `dst`, which ends in ShaderReadOnlyOptimal.
+static void RecordHudlessCopy(vk::CommandBuffer cmd, vk::Image src, vk::ImageLayout src_layout,
+                              vk::Image dst, u32 w, u32 h) {
+    constexpr auto aspect = vk::ImageAspectFlagBits::eColor;
+    const std::array<vk::ImageMemoryBarrier2, 1> to_dst{vk::ImageMemoryBarrier2{
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .oldLayout = vk::ImageLayout::eUndefined,
+        .newLayout = vk::ImageLayout::eTransferDstOptimal,
+        .image = dst,
+        .subresourceRange = {aspect, 0, 1, 0, 1},
+    }};
+    // The source was just written (post pass, upscaler) by any stage.
+    const vk::MemoryBarrier2 written{
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+    };
+    cmd.pipelineBarrier2({.memoryBarrierCount = 1,
+                          .pMemoryBarriers = &written,
+                          .imageMemoryBarrierCount = 1,
+                          .pImageMemoryBarriers = to_dst.data()});
+    cmd.copyImage(src, src_layout, dst, vk::ImageLayout::eTransferDstOptimal,
+                  vk::ImageCopy{.srcSubresource = {aspect, 0, 0, 1},
+                                .dstSubresource = {aspect, 0, 0, 1},
+                                .extent = {w, h, 1}});
+    const vk::ImageMemoryBarrier2 to_read{
+        .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+        .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+        .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        .image = dst,
+        .subresourceRange = {aspect, 0, 1, 0, 1},
+    };
+    // Later writes to the source (the HUD) wait for the copy.
+    const vk::MemoryBarrier2 read{
+        .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+    };
+    cmd.pipelineBarrier2({.memoryBarrierCount = 1,
+                          .pMemoryBarriers = &read,
+                          .imageMemoryBarrierCount = 1,
+                          .pImageMemoryBarriers = &to_read});
+}
+
+void TemporalUpscaler::CaptureHudless(VideoCore::ImageId color_id) {
+    auto& image = texture_cache.GetImage(color_id);
+    const u32 w = image.info.size.width, h = image.info.size.height;
+    EnsureHudless(w, h, image.info.pixel_format,
+                  FrameCapture::IsDisplayBuffer(image.info.guest_address));
+    scheduler.EndRendering();
+    runtime.Transit(&image, vk::ImageLayout::eTransferSrcOptimal, vk::PipelineStageFlagBits2::eCopy,
+                    vk::AccessFlagBits2::eTransferRead);
+    runtime.FlushBarriers();
+    scheduler.Record([src = image.GetImage(), dst = vk::Image(hudless_image), w,
+                      h](vk::CommandBuffer cmd) {
+        RecordHudlessCopy(cmd, src, vk::ImageLayout::eTransferSrcOptimal, dst, w, h);
+    });
+    hudless_ready = true;
+}
+
+void TemporalUpscaler::CaptureHudlessScaled(vk::CommandBuffer cmdbuf, u32 w, u32 h) {
+    // Scaled presets: the UI is drawn into ui_image, which is also what gets displayed.
+    EnsureHudless(w, h, vk::Format::eR8G8B8A8Unorm, true);
+    RecordHudlessCopy(cmdbuf, vk::Image(ui_image), vk::ImageLayout::eGeneral,
+                      vk::Image(hudless_image), w, h);
+    hudless_ready = true;
+}
+
 void TemporalUpscaler::OnDraw(u64 vs_hash, VideoCore::ImageId color,
                               VideoCore::ImageId depth, bool native_viewport) {
+    // Frame generation: the finished frame before the HUD goes on it, at the first UI draw
+    // after the upscale (post-processing ran, so the target holds the tonemapped scene).
+    if (!Scaled() && done_this_frame && !hudless_this_frame && color &&
+        (vs_hash == ui_trigger_vs || UiComposition::MovieShader(vs_hash)) &&
+        frame_generation->Enabled()) {
+        hudless_this_frame = true;
+        CaptureHudless(color);
+    }
     if (!Scaled() && vs_hash == ui_trigger_vs) done_this_frame = true;
     if (!Scaled() || !color) {
         return;
@@ -1659,6 +1782,16 @@ void TemporalUpscaler::RunScaled() {
                     vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eBlit,
                     vk::AccessFlagBits2::eTransferWrite, vk::ImageLayout::eGeneral,
                     vk::PipelineStageFlagBits2::eColorAttachmentOutput, color_access);
+            // Frame generation works with every upscaler: the same depth and motion vectors
+            // (FSR 3's jitter convention, which the motion vectors follow).
+            const float fg_sign = BbToggle::Disabled(1u << 26) ? -1.0f : 1.0f;
+            frame_generation->Capture(cmdbuf, depth_image, depth_format, vk::Image(motion_image),
+                                      w, h, {fg_sign * jitter[0], fg_sign * jitter[1]},
+                                      camera_motion.Near(), camera_motion.VerticalFov(),
+                                      frame_ms, reset);
+            if (frame_generation->Enabled()) {
+                CaptureHudlessScaled(cmdbuf, ow, oh);
+            }
             reset = false;
             dispatched_last_frame = true;
             if (const int dump = DumpFrame(); dump >= 0) {
@@ -1750,6 +1883,12 @@ void TemporalUpscaler::RunScaled() {
         failed = true;
     } else {
         ok = true;
+        frame_generation->Capture(cmdbuf, depth_image, depth_format, vk::Image(motion_image), w, h,
+                                  {info.jitterOffset.x, info.jitterOffset.y}, info.cameraNear,
+                                  info.cameraVerticalFovRadians, frame_ms, reset);
+        if (frame_generation->Enabled()) {
+            CaptureHudlessScaled(cmdbuf, ow, oh);
+        }
         reset = false;
         dispatched_last_frame = true;
         ExtraSharpen(cmdbuf, vk::Image(ui_image), true, ow, oh);

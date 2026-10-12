@@ -239,6 +239,31 @@ ImageView& Image::FindView(const ImageViewInfo& view_info, bool ensure_guest_sam
     return (*slot_image_views)[view_id];
 }
 
+namespace {
+/// wbp: every access that writes the image, attachments included.
+constexpr vk::AccessFlags2 AnyWrite =
+    vk::AccessFlagBits2::eTransferWrite | vk::AccessFlagBits2::eShaderWrite |
+    vk::AccessFlagBits2::eShaderStorageWrite | vk::AccessFlagBits2::eMemoryWrite |
+    vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+
+/// wbp: a read after reads in the same layout needs no barrier. The state then keeps every
+/// reader (stages and access), so the next write or layout change waits for all of them.
+/// Before, a different access mask alone (fragment sampling, then compute sampling) cost a
+/// barrier, and every barrier batch drains the GPU. BB_OLD_IMAGE_BARRIERS=1: the old rule.
+bool MergeRead(Image::State& state, vk::ImageLayout dst_layout, vk::AccessFlags2 dst_mask,
+               vk::PipelineStageFlags2 dst_stage) {
+    static const bool old_rule = std::getenv("BB_OLD_IMAGE_BARRIERS") != nullptr;
+    if (old_rule || state.layout != dst_layout || (state.access_mask & AnyWrite) ||
+        (dst_mask & AnyWrite) || state.layout == vk::ImageLayout::eUndefined) {
+        return false;
+    }
+    state.access_mask |= dst_mask;
+    state.pl_stage |= dst_stage;
+    BbStats::image_barriers_merged.fetch_add(1, std::memory_order_relaxed);
+    return true;
+}
+} // namespace
+
 void Image::GetBarriers(Barriers& barriers, vk::ImageLayout dst_layout, vk::AccessFlags2 dst_mask,
                         vk::PipelineStageFlags2 dst_stage,
                         std::optional<SubresourceRange> subres_range) {
@@ -277,6 +302,9 @@ void Image::GetBarriers(Barriers& barriers, vk::ImageLayout dst_layout, vk::Acce
                 const auto subres_idx = mip * info.resources.layers + layer;
                 ASSERT(subres_idx < subresource_states.size());
                 auto& state = subresource_states[subres_idx];
+                if (MergeRead(state, dst_layout, dst_mask, dst_stage)) {
+                    continue;
+                }
 
                 constexpr auto write_flags = vk::AccessFlagBits2::eTransferWrite |
                                              vk::AccessFlagBits2::eShaderWrite |
@@ -312,6 +340,9 @@ void Image::GetBarriers(Barriers& barriers, vk::ImageLayout dst_layout, vk::Acce
             subresource_states.clear();
         }
     } else { // Full resource transition
+        if (MergeRead(last_state, dst_layout, dst_mask, dst_stage)) {
+            return;
+        }
         constexpr auto write_flags = vk::AccessFlagBits2::eTransferWrite |
                                      vk::AccessFlagBits2::eShaderWrite |
                                      vk::AccessFlagBits2::eMemoryWrite;

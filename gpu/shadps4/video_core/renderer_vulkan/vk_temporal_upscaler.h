@@ -21,6 +21,7 @@
 #include "common/types.h"
 #include "video_core/renderer_vulkan/vk_common.h"
 #include "video_core/renderer_vulkan/vk_dlss.h"
+#include "video_core/renderer_vulkan/vk_frame_generation.h"
 #include "video_core/renderer_vulkan/vk_fsr4.h"
 #include "video_core/texture_cache/image.h"
 
@@ -40,6 +41,27 @@ class SceneTargets;
 
 class TemporalUpscaler {
 public:
+    /// FSR 3 frame generation: fed here with depth and motion vectors, run by the presenter.
+    FrameGeneration& FrameGen() {
+        return *frame_generation;
+    }
+    /// Frame generation: this frame's image without the HUD (the game's finished frame copied
+    /// before the first UI draw), in ShaderReadOnlyOptimal, viewable as `format`. False when
+    /// the frame had none (menus, scaled presets).
+    struct Hudless {
+        vk::Image image;
+        vk::Format format;
+        u32 width, height;
+        bool display_buffer; ///< same channel order as the displayed image (no swap)
+    };
+    bool TakeHudless(Hudless& out) {
+        if (!hudless_ready) return false;
+        hudless_ready = false;
+        out = {vk::Image(hudless_image), hudless_format, hudless_width, hudless_height,
+               hudless_display};
+        return true;
+    }
+
     TemporalUpscaler(const Instance& instance, Scheduler& scheduler,
                      VideoCore::TextureCache& texture_cache, Runtime& runtime,
                      CameraMotion& camera_motion, SceneTargets& scene_targets);
@@ -180,6 +202,14 @@ private:
     void ExtraSharpen(vk::CommandBuffer cmdbuf, vk::Image target, bool ldr, u32 w, u32 h);
 
     const Instance& instance;
+    std::unique_ptr<FrameGeneration> frame_generation;
+    void CaptureHudless(VideoCore::ImageId color);
+    void CaptureHudlessScaled(vk::CommandBuffer cmdbuf, u32 width, u32 height);
+    bool EnsureHudless(u32 width, u32 height, vk::Format format, bool same_as_display);
+    VideoCore::UniqueImage hudless_image;
+    vk::Format hudless_format{};
+    u32 hudless_width = 0, hudless_height = 0;
+    bool hudless_ready = false, hudless_display = false, hudless_this_frame = false;
     Scheduler& scheduler;
     VideoCore::TextureCache& texture_cache;
     Runtime& runtime;
