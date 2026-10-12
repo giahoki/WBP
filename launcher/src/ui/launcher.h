@@ -23,6 +23,9 @@ public:
     explicit Launcher(Ui& ui);
     ~Launcher();
     void Frame();             // one frame of the whole window
+    // Time the last frame took to build (Frame and the UI) and to draw and present: the
+    // launcher FPS counter (Advanced > Diagnostics).
+    void FrameTimes(double build_ms, double draw_ms) { build_ms_ += build_ms, draw_ms_ += draw_ms; }
     bool WantsClose() const { return close_at_ > 0 && ui_.in.time >= close_at_; }
     bool GameRunning() const { return game_.Running(); }
     bool Animating() const;   // something moves: keep drawing at full rate
@@ -111,6 +114,11 @@ private:
     std::vector<Toast> toasts_;
     std::vector<Ash> ash_;
     float mouse_sx_ = 0.5f, mouse_sy_ = 0.5f;
+    // launcher FPS counter: sums over the current half second, and what it shows
+    double fps_since_ = 0, build_ms_ = 0, draw_ms_ = 0;
+    int fps_frames_ = 0;
+    std::string fps_text_, fps_detail_;
+    void FpsCounter();
 
     GameProcess game_;
     std::deque<std::string> log_;

@@ -237,3 +237,11 @@ Add to Steam	Zu Steam hinzufügen
 The WebAPI box holds the game server address; it is ignored.	Das WebAPI-Feld enthält die Adresse des Spielservers; sie wird ignoriert.
 "Play online" is off: the game starts offline.	„Online spielen“ ist aus: Das Spiel startet offline.
 Could not add the game to Steam: {}	Das Spiel konnte nicht zu Steam hinzugefügt werden: {}
+Settings file (wbp.ini)	Einstellungsdatei (wbp.ini)
+AppData (default)	AppData (Standard)
+AppData: {}\nPort folder: {}	AppData: {}\nPort-Ordner: {}
+Settings file: {}	Einstellungsdatei: {}
+High: upscaled from ×1.5	Hoch: hochskaliert von ×1,5
+Ultra: native resolution	Ultra: native Auflösung
+Maximum: native, highest model detail	Maximum: nativ, höchste Modelldetails
+Launcher FPS counter (overlay)	FPS des Launchers anzeigen

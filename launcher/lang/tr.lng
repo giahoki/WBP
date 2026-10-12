@@ -237,3 +237,11 @@ Add to Steam	Steam'e ekle
 The WebAPI box holds the game server address; it is ignored.	WebAPI alanında oyun sunucusunun adresi var; yok sayılıyor.
 "Play online" is off: the game starts offline.	"Çevrim içi oyna" kapalı: oyun çevrim dışı başlar.
 Could not add the game to Steam: {}	Oyun Steam'e eklenemedi: {}
+Settings file (wbp.ini)	Ayar dosyası (wbp.ini)
+AppData (default)	AppData (varsayılan)
+AppData: {}\nPort folder: {}	AppData: {}\nPort klasörü: {}
+Settings file: {}	Ayar dosyası: {}
+High: upscaled from ×1.5	Yüksek: ×1,5’ten ölçekleme
+Ultra: native resolution	Ultra: yerel çözünürlük
+Maximum: native, highest model detail	Maksimum: yerel, en yüksek model detayı
+Launcher FPS counter (overlay)	Başlatıcının FPS’ini göster

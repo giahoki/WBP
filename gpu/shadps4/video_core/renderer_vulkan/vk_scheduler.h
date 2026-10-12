@@ -666,6 +666,10 @@ private:
     CommandBase* last{};
 };
 
+// Runs a graphics queue call (submit, bind sparse) and repeats it when the driver refuses it;
+// ends the game with the reason if it keeps failing. The caller holds Scheduler::submit_mutex.
+void SubmitOrRetry(const Instance& instance, const char* what, const std::function<vk::Result()>& call);
+
 class Scheduler {
 public:
     /// `threaded_recording`: Vulkan commands passed to Record() are recorded by a worker thread.

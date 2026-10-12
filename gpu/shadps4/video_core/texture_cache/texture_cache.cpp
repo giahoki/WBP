@@ -1116,11 +1116,18 @@ void TextureCache::GarbageCollectImages() {
     if (pressured || gc_downloads != 0) {
         const auto now = std::chrono::steady_clock::now();
         if (now - gc_report_time >= std::chrono::seconds(5)) {
-            std::printf("Texture cache: memory pressure, %llu of %llu MiB (critical %llu): "
+            // The driver's budget for this process now (Windows lowers it when other programs
+            // take video memory; above it the driver moves memory to system RAM, which the
+            // Task Manager shows as shared GPU memory, not dedicated).
+            const u64 budget_now =
+                instance.CanReportMemoryUsage() ? instance.GetDeviceMemoryBudgetNow() : 0;
+            std::printf("Texture cache: memory pressure, %llu of %llu MiB (critical %llu, driver "
+                        "budget now %llu): "
                         "%llu images evicted, %llu written back since the last report\n",
                         (unsigned long long)(total_used_memory >> 20),
                         (unsigned long long)(pressure_gc_memory >> 20),
                         (unsigned long long)(critical_gc_memory >> 20),
+                        (unsigned long long)(budget_now >> 20),
                         (unsigned long long)gc_evictions, (unsigned long long)gc_downloads);
             gc_report_time = now;
             gc_evictions = gc_downloads = 0;

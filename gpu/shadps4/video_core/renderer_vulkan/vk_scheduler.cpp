@@ -499,6 +499,32 @@ void Scheduler::AllocateWorkerCommandBuffers() {
 #endif
 }
 
+// wbp: a submission the driver refused (out of video or system memory: a 4 GB card over its
+// budget) never signals its timeline value, so every later wait for it, and every submission
+// queued behind it, waited forever: the game froze with "no progress ... waiting for
+// submission N (at N-1)" and no device loss. The queue is drained so the driver can move
+// memory, and the call is repeated; if it keeps failing the game ends with the reason.
+// The caller holds submit_mutex (every use of the graphics queue).
+void SubmitOrRetry(const Instance& instance, const char* what, const std::function<vk::Result()>& call) {
+    vk::Result result = call();
+    for (int attempt = 1; result != vk::Result::eSuccess; ++attempt) {
+        ASSERT_MSG(result != vk::Result::eErrorDeviceLost, "Device lost during {}", what);
+        const u64 used = instance.CanReportMemoryUsage() ? instance.GetDeviceMemoryUsage() >> 20 : 0;
+        const u64 budget = instance.CanReportMemoryUsage() ? instance.GetDeviceMemoryBudgetNow() >> 20 : 0;
+        std::fprintf(stderr, "GPU: the driver refused a %s (%s), attempt %d; video memory %llu of %llu MiB\n",
+                     what, vk::to_string(result).c_str(), attempt, (unsigned long long)used,
+                     (unsigned long long)budget);
+        ASSERT_MSG(attempt < 6,
+                   "The graphics driver keeps refusing work ({}): video memory {} of {} MiB is full. "
+                   "Lower the output resolution or the graphics preset, or close other programs that "
+                   "use the GPU.",
+                   vk::to_string(result), used, budget);
+        (void)instance.GetGraphicsQueue().waitIdle();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50 << attempt));
+        result = call();
+    }
+}
+
 void Scheduler::SubmitExecution(SubmitInfo& info) {
     std::scoped_lock lk{submit_mutex};
     const u64 signal_value = work_semaphore.NextTick();
@@ -557,8 +583,9 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
     };
 
     ImGui::Core::TextureManager::Submit();
-    auto submit_result = instance.GetGraphicsQueue().submit(submit_info, info.fence);
-    ASSERT_MSG(submit_result != vk::Result::eErrorDeviceLost, "Device lost during submit");
+    SubmitOrRetry(instance, "submission", [&] {
+        return instance.GetGraphicsQueue().submit(submit_info, info.fence);
+    });
 
     work_semaphore.Refresh();
     AllocateWorkerCommandBuffers();

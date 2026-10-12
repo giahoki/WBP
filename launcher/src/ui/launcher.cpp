@@ -19,69 +19,143 @@ using namespace theme;
 
 namespace {
 
-// Graphics presets: every key a preset sets. Defaults (Ini::Defaults) equal "high".
+// Graphics presets: every key a preset sets. Defaults (Ini::Defaults) equal "high". The
+// upscaler is not part of a preset (it depends on the card, see Recommend).
 const std::vector<Choice> GRAPHICS_PRESETS = {
     {"low", {"Low: weak GPUs (GTX 1650, laptops)", "Низкие: слабые видеокарты (GTX 1650, ноутбуки)"}},
     {"medium", {"Medium", "Средние"}},
-    {"high", {"High: recommended", "Высокие: рекомендуемые"}},
-    {"ultra", {"Ultra: native resolution, highest detail", "Ультра: нативное разрешение, максимум деталей"}},
+    {"high", {"High: upscaled from ×1.5", "Высокие: апскейл с ×1.5"}},
+    {"ultra", {"Ultra: native resolution", "Ультра: нативное разрешение"}},
+    {"max", {"Maximum: native, highest model detail", "Максимум: натив, максимальная детализация"}},
     {"custom", {"Custom", "Свои"}}};
 using Values = std::vector<std::pair<const char*, const char*>>;
 const Values& PresetValues(const std::string& id) {
-    static const Values low = {{"upscaler", "auto"}, {"preset", "3"}, {"live_resolution", "0"},
+    static const Values low = {{"preset", "3"}, {"live_resolution", "0"}, {"frame_generation", "0"},
                                {"object_motion", "0"}, {"model_lod", "1"}, {"shadow_quality", "low"},
                                {"effect_ssao", "0"}, {"effect_dof", "0"}, {"effect_motion_blur", "0"},
                                {"effect_dynamic_shadows", "0"}, {"sharpen", "1"}};
-    static const Values medium = {{"upscaler", "auto"}, {"preset", "2"}, {"live_resolution", "auto"},
+    static const Values medium = {{"preset", "2"}, {"live_resolution", "auto"}, {"frame_generation", "0"},
                                   {"object_motion", "0"}, {"model_lod", "0"}, {"shadow_quality", "high"},
                                   {"effect_ssao", "1"}, {"effect_dof", "1"}, {"effect_motion_blur", "0"},
                                   {"effect_dynamic_shadows", "1"}, {"sharpen", "1"}};
-    static const Values high = {{"upscaler", "auto"}, {"preset", "1"}, {"live_resolution", "auto"},
+    static const Values high = {{"preset", "1"}, {"live_resolution", "auto"}, {"frame_generation", "0"},
                                 {"object_motion", "1"}, {"model_lod", "0"}, {"shadow_quality", "high"},
                                 {"effect_ssao", "1"}, {"effect_dof", "1"}, {"effect_motion_blur", "1"},
                                 {"effect_dynamic_shadows", "1"}, {"sharpen", "1"}};
-    static const Values ultra = {{"upscaler", "auto"}, {"preset", "0"}, {"live_resolution", "auto"},
-                                 {"object_motion", "1"}, {"model_lod", "-2"}, {"shadow_quality", "high"},
+    static const Values ultra = {{"preset", "0"}, {"live_resolution", "auto"}, {"frame_generation", "0"},
+                                 {"object_motion", "1"}, {"model_lod", "0"}, {"shadow_quality", "high"},
                                  {"effect_ssao", "1"}, {"effect_dof", "1"}, {"effect_motion_blur", "1"},
                                  {"effect_dynamic_shadows", "1"}, {"sharpen", "1"}};
+    static const Values max = {{"preset", "0"}, {"live_resolution", "auto"}, {"frame_generation", "0"},
+                               {"object_motion", "1"}, {"model_lod", "-2"}, {"shadow_quality", "high"},
+                               {"effect_ssao", "1"}, {"effect_dof", "1"}, {"effect_motion_blur", "1"},
+                               {"effect_dynamic_shadows", "1"}, {"sharpen", "1"}};
     static const Values none;
-    return id == "low" ? low : id == "medium" ? medium : id == "high" ? high : id == "ultra" ? ultra : none;
+    return id == "low" ? low : id == "medium" ? medium : id == "high" ? high : id == "ultra" ? ultra : id == "max" ? max : none;
 }
 
-// Model number after a prefix ("rtx 4060" -> 4060), or 0.
-int ModelNumber(const std::string& lower, const char* prefix) {
-    const size_t at = lower.find(prefix);
-    if (at == std::string::npos) return 0;
-    try {
-        return std::stoi(lower.substr(at + std::strlen(prefix)));
-    } catch (...) {
-        return 0;
+// Relative speed of graphics cards in this port (RTX 4060 Ti = 100; the port is limited by the
+// GPU, so this decides). Names are matched lower-case with "(tm)"/"(r)" removed, longest first,
+// as whole words ("rtx 4060" does not match "rtx 4060 ti", "rx 7900 xt" not "rx 7900 xtx").
+const std::vector<std::pair<const char*, int>> GPU_SPEED = {
+    // NVIDIA GeForce RTX 50 / 40 / 30 / 20
+    {"rtx 5090", 300}, {"rtx 5080", 230}, {"rtx 5070 ti", 205}, {"rtx 5070", 165}, {"rtx 5060 ti", 120},
+    {"rtx 5060", 105}, {"rtx 5050", 80},
+    {"rtx 4090", 260}, {"rtx 4080 super", 215}, {"rtx 4080", 210}, {"rtx 4070 ti super", 185}, {"rtx 4070 ti", 175},
+    {"rtx 4070 super", 160}, {"rtx 4070", 140}, {"rtx 4060 ti", 100}, {"rtx 4060", 82}, {"rtx 4050", 65},
+    {"rtx 3090 ti", 170}, {"rtx 3090", 155}, {"rtx 3080 ti", 152}, {"rtx 3080", 140}, {"rtx 3070 ti", 118},
+    {"rtx 3070", 110}, {"rtx 3060 ti", 98}, {"rtx 3060", 75}, {"rtx 3050", 52},
+    {"rtx 2080 ti", 115}, {"rtx 2080 super", 100}, {"rtx 2080", 95}, {"rtx 2070 super", 90}, {"rtx 2070", 80},
+    {"rtx 2060 super", 75}, {"rtx 2060", 65},
+    {"rtx a6000", 155}, {"rtx a5000", 130}, {"rtx a4000", 100}, {"rtx a2000", 60},
+    // NVIDIA GeForce GTX 16 / 10
+    {"gtx 1660 ti", 55}, {"gtx 1660 super", 55}, {"gtx 1660", 50}, {"gtx 1650 super", 42}, {"gtx 1650", 33},
+    {"gtx 1080 ti", 85}, {"gtx 1080", 68}, {"gtx 1070 ti", 62}, {"gtx 1070", 55}, {"gtx 1060", 40},
+    {"gtx 1050 ti", 25}, {"gtx 1050", 20}, {"gtx titan x", 50}, {"gtx 980 ti", 48}, {"gtx 980", 38}, {"gtx 970", 32},
+    // AMD Radeon RX 9000 / 7000 / 6000 / 5000 / older
+    {"rx 9070 xt", 190}, {"rx 9070 gre", 150}, {"rx 9070", 165}, {"rx 9060 xt", 110}, {"rx 9060", 95},
+    {"rx 7900 xtx", 210}, {"rx 7900 xt", 185}, {"rx 7900 gre", 160}, {"rx 7800 xt", 150}, {"rx 7700 xt", 125},
+    {"rx 7700", 115}, {"rx 7650 gre", 100}, {"rx 7600 xt", 95}, {"rx 7600", 90},
+    {"rx 6950 xt", 165}, {"rx 6900 xt", 155}, {"rx 6800 xt", 145}, {"rx 6800", 125}, {"rx 6750 xt", 110},
+    {"rx 6750 gre", 105}, {"rx 6700 xt", 105}, {"rx 6700", 95}, {"rx 6650 xt", 90}, {"rx 6600 xt", 85},
+    {"rx 6600", 75}, {"rx 6500 xt", 38}, {"rx 6400", 28},
+    {"rx 5700 xt", 80}, {"rx 5700", 72}, {"rx 5600 xt", 65}, {"rx 5600", 58}, {"rx 5500 xt", 45},
+    {"rx vega 64", 60}, {"rx vega 56", 52}, {"radeon vii", 80}, {"rx 590", 42}, {"rx 580", 38}, {"rx 570", 32},
+    {"rx 480", 36}, {"rx 470", 30},
+    // Intel Arc
+    {"arc b580", 95}, {"arc b570", 82}, {"arc a770", 85}, {"arc a750", 78}, {"arc a580", 65}, {"arc a380", 30},
+    {"arc a310", 20},
+    // integrated: Radeon 890M/880M/780M/760M/680M/660M, Intel Arc (Core Ultra), Iris Xe
+    {"890m", 32}, {"880m", 28}, {"8060s", 75}, {"8050s", 60}, {"780m", 25}, {"760m", 20}, {"740m", 13},
+    {"680m", 20}, {"660m", 14}, {"arc 140v", 25}, {"arc 130v", 20}, {"arc graphics", 18}, {"iris xe", 10}, {"radeon graphics", 9},
+    {"uhd graphics", 5}};
+
+bool WordChar(char c) { return std::isalnum(static_cast<unsigned char>(c)) != 0; }
+
+// Speed of the detected card on the GPU_SPEED scale, and whether it was found in the table.
+std::pair<int, bool> GpuSpeed(const actions::GpuInfo& gpu) {
+    std::string n = Lower(gpu.name);
+    for (const char* noise : {"(tm)", "(r)", "nvidia ", "geforce ", "amd ", "intel "}) n = Replace(n, noise, " ");
+    std::string clean;  // single spaces
+    for (char c : n)
+        if (c != ' ' || (!clean.empty() && clean.back() != ' ')) clean += c;
+    const char* best = nullptr;
+    int speed = 0;
+    for (const auto& [key, value] : GPU_SPEED) {
+        const size_t len = std::strlen(key);
+        if (best && len <= std::strlen(best)) continue;
+        for (size_t at = clean.find(key); at != std::string::npos; at = clean.find(key, at + 1)) {
+            const bool left = at == 0 || !WordChar(clean[at - 1]), right = at + len >= clean.size() || !WordChar(clean[at + len]);
+            if (left && right) {
+                best = key, speed = value;
+                break;
+            }
+        }
     }
+    // Laptop chips with desktop names run at lower clocks and power.
+    const bool laptop = clean.find("laptop") != std::string::npos || clean.find("mobile") != std::string::npos ||
+                        clean.find("max-q") != std::string::npos;
+    if (best) return {laptop && !gpu.integrated ? speed * 3 / 4 : speed, true};
+    if (gpu.integrated) return {10, false};
+    const int vram = gpu.vram_mib;
+    return {vram >= 16000 ? 150 : vram >= 12000 ? 110 : vram >= 8000 ? 80 : vram >= 6000 ? 55 : 35, false};
 }
 
-// Preset for a graphics card, from measurements on an RTX 4060 Ti (High: ~80 FPS at 1080p)
-// and the relative speed of other cards. The port is limited by the GPU, so the card decides.
-std::string RecommendedPreset(const actions::GpuInfo& gpu) {
+// What "Pick for my graphics card" chose: a preset, the upscaler and the frame rate it expects.
+struct Recommendation {
+    std::string preset, upscaler = "auto";
+    int fps = 0, target = 60, speed = 0;
+    bool known = false;
+};
+
+// Frame time model from the RTX 4060 Ti at 1080p: a fixed part (~140 small passes, mostly
+// independent of the resolution) plus a part per rendered megapixel; object motion vectors and
+// the highest LOD add a share. The first preset that reaches the target (with 5% to spare) wins.
+Recommendation Recommend(const actions::GpuInfo& gpu, const std::string& output_res, const std::string& fps_mode) {
+    Recommendation r;
+    std::tie(r.speed, r.known) = GpuSpeed(gpu);
+    r.target = fps_mode == "30" ? 30 : fps_mode == "90" ? 90 : 60;
+    int ow = 1920, oh = 1080;
+    if (std::sscanf(output_res.c_str(), "%dx%d", &ow, &oh) != 2 || ow <= 0 || oh <= 0) ow = 1920, oh = 1080;
+    const double out_mp = ow * double(oh) / 1e6;
+    struct Step {
+        const char* id;
+        double scale, fixed, cost;  // render scale per axis, share of the fixed part, overall factor
+    };
+    static const Step steps[] = {{"max", 1.0, 1.0, 1.15}, {"ultra", 1.0, 1.0, 1.10}, {"high", 1.5, 1.0, 1.10},
+                                 {"medium", 1.7, 1.0, 1.0}, {"low", 2.0, 0.85, 1.0}};
+    constexpr double FIXED_MS = 7.9, MS_PER_MP = 1.78;
+    const double budget = 1000.0 / (r.target * 1.05);
+    for (const Step& s : steps) {
+        const double ms = (FIXED_MS * s.fixed + MS_PER_MP * out_mp / (s.scale * s.scale)) * s.cost * 100.0 / std::max(1, r.speed);
+        r.preset = s.id, r.fps = int(1000.0 / ms);
+        if (ms <= budget) break;
+    }
+    // FSR 4 on RDNA 4 (Radeon RX 9000) when its assets are there; otherwise Auto (DLSS / FSR 3.1).
     const std::string n = Lower(gpu.name);
-    if (gpu.integrated || (gpu.vram_mib > 0 && gpu.vram_mib < 4500)) return "low";
-    if (const int rtx = ModelNumber(n, "rtx ")) {
-        const int series = rtx / 100, tier = rtx % 100;
-        if (tier >= 80) return series >= 30 ? "ultra" : "high";
-        if (tier >= 70) return series >= 40 ? "ultra" : "high";
-        if (tier >= 60) return series >= 40 ? "high" : "medium";
-        return series >= 40 ? "medium" : "low";
-    }
-    if (n.find("gtx") != std::string::npos) return ModelNumber(n, "gtx ") >= 1070 ? "medium" : "low";
-    if (const int rx = ModelNumber(n, "rx ")) {
-        if (rx >= 9070 || (rx >= 7900 && rx < 8000)) return "ultra";
-        if (rx >= 9000 || (rx >= 7700 && rx < 8000) || (rx >= 6800 && rx < 7000)) return "high";
-        if (rx >= 6600) return "medium";
-        return "low";
-    }
-    if (n.find("arc") != std::string::npos) return n.find("b580") != std::string::npos ? "high" : "medium";
-    return gpu.vram_mib >= 12000 ? "high" : gpu.vram_mib >= 8000 ? "medium" : "low";
+    if (n.find("rx 90") != std::string::npos && Fsr4Missing().empty()) r.upscaler = "fsr4";
+    return r;
 }
-
 // DLSS: wbp_dlss.dll and nvngx_dlss.dll next to wbp-game.exe (bin\ in a package, out\ in a build).
 bool DlssInstalled() {
     for (const wchar_t* dir : {L"bin", L"out"}) {
@@ -602,6 +676,34 @@ void Launcher::Frame() {
     Header(Rect{0, 0, W, HEADER});
     BottomBar(Rect{0, H - BAR, W, BAR});
     Toasts();
+    FpsCounter();
+}
+
+void Launcher::FpsCounter() {
+    const double now = ui_.in.time;
+    ++fps_frames_;
+    if (now - fps_since_ >= 0.25) {  // four updates a second
+        const double span = now - fps_since_;
+        if (fps_since_ > 0 && fps_frames_ > 0) {
+            char text[160];
+            std::snprintf(text, sizeof text, "%.0f FPS", fps_frames_ / span);
+            fps_text_ = text;
+            std::snprintf(text, sizeof text, "%.1f ms   UI %.2f   draw %.2f", span * 1000 / fps_frames_,
+                          build_ms_ / fps_frames_, draw_ms_ / fps_frames_);
+            fps_detail_ = text;
+        }
+        fps_since_ = now, fps_frames_ = 0, build_ms_ = draw_ms_ = 0;
+    }
+    if (!(app_.On("launcher_fps") || HasEnv("BB_LAUNCHER_FPS")) || fps_text_.empty()) return;
+    // An overlay in the top left corner, as in a game: the frame rate large, the times below.
+    TextStyle big = Style(22, Rgb(0x9cff9c));
+    big.bold = true, big.wrap = false;
+    TextStyle small = Style(11, Rgb(0xc8e6c8));
+    small.wrap = false;
+    const float w = std::max(ui_.g.Measure(fps_text_, big).width, ui_.g.Measure(fps_detail_, small).width) + 20;
+    ui_.g.FillRound(Rect{6, 6, w, 48}, 4, Rgb(0x000000, 0.72f));
+    ui_.g.Text(fps_text_, Rect{16, 8, w, 28}, big, true);
+    ui_.g.Text(fps_detail_, Rect{16, 35, w, 16}, small, true);
 }
 
 const std::vector<std::pair<std::string, Text>>& Launcher::Tabs() {
@@ -1009,7 +1111,7 @@ float Launcher::GraphicsPage(float x, float y, float w) {
     f.Section(T("Graphics preset", "Пресет графики"));
     {
         std::string current = "custom";
-        for (const char* id : {"low", "medium", "high", "ultra"}) {
+        for (const char* id : {"low", "medium", "high", "ultra", "max"}) {
             bool all = true;
             for (const auto& [key, value] : PresetValues(id)) all = all && ini_.Get(key) == value;
             if (all) current = id;
@@ -1027,10 +1129,20 @@ float Launcher::GraphicsPage(float x, float y, float w) {
         const actions::GpuInfo gpu = actions::DetectedGpu();
         const std::string label = T("Pick for my graphics card", "Подобрать под видеокарту");
         if (ui_.Button("gfx_detect", label, Rect{x, f.y, ui_.ButtonWidth(label, true), 32}, {true, false, gpu.name.empty()})) {
-            const std::string id = RecommendedPreset(gpu);
-            apply(id);
+            const Recommendation rec = Recommend(gpu, ini_.Get("output_res"), app_.Str("fps_mode"));
+            apply(rec.preset);
+            ini_.values["upscaler"] = rec.upscaler;
+            std::string name = rec.preset;
             for (const Choice& c : GRAPHICS_PRESETS)
-                if (id == c.value) Notify(gpu.name + ": " + Split(c.title(), ':')[0]);
+                if (rec.preset == c.value) name = Split(c.title(), ':')[0];
+            Notify(Fmt(T("{}: {} — about {} FPS at {} (target {}). Frame generation is off: turn it on yourself if you "
+                         "want more FPS on screen.",
+                         "{}: {} — около {} FPS в {} (цель {}). Генерация кадров выключена: включите сами, если нужно "
+                         "больше FPS на экране."),
+                       gpu.name, name, std::to_string(rec.fps), Replace(ini_.Get("output_res"), "x", "×"),
+                       std::to_string(rec.target)) +
+                   (rec.known ? "" : T(" The card is not in the list: estimated from its memory.",
+                                       " Карты нет в списке: оценка по объёму памяти.")));
         }
         f.y += 44;
     }
@@ -1393,6 +1505,25 @@ float Launcher::AdvancedPage(float x, float y, float w) {
     }
     AppFlag(f, "close_on_play", T("Close the launcher when the game starts", "Закрывать лаунчер при запуске игры"));
     AppFlag(f, "check_updates", T("Check for updates when the launcher opens", "Проверять обновления при открытии лаунчера"));
+    {
+        // wbp.ini moves along at once; BB_CONFIG (tests, a restart from the game) keeps its own path.
+        std::string v = app_.Str("config_place");
+        if (f.Choice("app.config_place", T("Settings file (wbp.ini)", "Файл настроек (wbp.ini)"), v, Opts(CONFIG_PLACES),
+                     Fmt(T("AppData: {}\nPort folder: {}", "AppData: {}\nПапка порта: {}"), PathText(ConfigDir() / L"wbp.ini"),
+                         PathText(DataDir() / L"wbp.ini")))) {
+            App next = app_;
+            next.Set("config_place", v);
+            try {
+                ini_.Save();
+                MoveIni(app_, next);
+                app_ = next;
+                app_.Save();
+                Notify(Fmt(T("Settings file: {}", "Файл настроек: {}"), PathText(Ini::Path())));
+            } catch (const std::exception& error) {
+                Notify(error.what(), true);
+            }
+        }
+    }
     const int a = f.Buttons("adv1", {T("Desktop shortcut", "Ярлык на рабочем столе"), T("Add to Steam"),
                                      T("Port folder", "Папка порта"), "wbp.ini"});
     if (a == 0) {
@@ -1455,6 +1586,11 @@ float Launcher::AdvancedPage(float x, float y, float w) {
     f.Section(T("Diagnostics", "Для разработчика"));
     AppFlag(f, "frame_stats", T("Frame statistics in the log (every 5 s)", "Статистика кадров в журнале (раз в 5 с)"));
     AppFlag(f, "gpu_profile", T("GPU time per pass in the log", "Профиль GPU в журнале"));
+    AppFlag(f, "launcher_fps", T("Launcher FPS counter (overlay)", "Счётчик FPS лаунчера (оверлей)"),
+            T("Live in the top left corner of the launcher window. Below it: frame interval, time to build the UI and to draw it. The "
+              "launcher runs at the monitor refresh rate in front, 20 FPS behind other windows and 1 while the game runs.",
+              "Вживую в левом верхнем углу окна лаунчера. Под ним мелко: интервал кадра, время сборки интерфейса и отрисовки. "
+              "На переднем плане лаунчер идёт с частотой монитора, за другими окнами 20 FPS, во время игры 1."));
     AppFlag(f, "vk_validation", T("Vulkan validation layers (needs the Vulkan SDK; much slower)",
                                   "Слои валидации Vulkan (нужен Vulkan SDK; сильно замедляет)"));
     AppEntry(f, "extra_env", T("Extra variables", "Доп. переменные"),

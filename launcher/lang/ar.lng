@@ -237,3 +237,11 @@ Add to Steam	إضافة إلى Steam
 The WebAPI box holds the game server address; it is ignored.	حقل WebAPI يحتوي على عنوان خادم اللعبة، ولن يُستخدم.
 "Play online" is off: the game starts offline.	خيار «العب عبر الإنترنت» متوقف: ستبدأ اللعبة بدون إنترنت.
 Could not add the game to Steam: {}	تعذّرت إضافة اللعبة إلى Steam: {}
+Settings file (wbp.ini)	ملف الإعدادات (wbp.ini)
+AppData (default)	AppData (افتراضي)
+AppData: {}\nPort folder: {}	AppData: {}\nمجلد المنفذ: {}
+Settings file: {}	ملف الإعدادات: {}
+High: upscaled from ×1.5	عالية: تكبير من ×1.5
+Ultra: native resolution	فائقة: الدقة الأصلية
+Maximum: native, highest model detail	القصوى: أصلية، أعلى تفاصيل للنماذج
+Launcher FPS counter (overlay)	إظهار FPS المشغّل

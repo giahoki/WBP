@@ -87,6 +87,8 @@ const std::vector<Choice> FRAME_CAPS = {
     {"240", {"240  ⚠"}}, {"0", {"No limit  ⚠", "Без ограничения  ⚠"}}};
 const std::vector<Choice> DISPLAYS = {{"", {"Main (default)", "Основной (по умолчанию)"}}, {"1", {"1"}}, {"2", {"2"}},
                                       {"3", {"3"}}, {"4", {"4"}}};
+const std::vector<Choice> CONFIG_PLACES = {{"appdata", {"AppData (default)", "AppData (по умолчанию)"}},
+                                           {"port", {"Port folder", "Папка порта"}}};
 const std::vector<Choice> FRAMES_AHEAD = {{"", {"1 (default)", "1 (по умолчанию)"}}, {"2", {"2"}},
                                           {"0", {"Unbounded", "Без ограничения"}}};
 
@@ -152,7 +154,46 @@ std::map<std::string, std::vector<std::string>> LoadBindings(const std::map<std:
 
 // ---- wbp.ini --------------------------------------------------------------------------
 
-fs::path Ini::Path() { return HasEnv("BB_CONFIG") ? PathFrom(Env("BB_CONFIG")) : DataDir() / L"wbp.ini"; }
+fs::path Ini::Path() {
+    if (HasEnv("BB_CONFIG")) return PathFrom(Env("BB_CONFIG"));
+    App app;
+    app.Load();
+    return IniPath(app);
+}
+
+static fs::path IniPlace(const std::string& place) {
+    return (place == "port" ? DataDir() : ConfigDir()) / L"wbp.ini";
+}
+
+// Rename, or copy and delete across drives.
+static void MoveTo(const fs::path& from, const fs::path& to) {
+    std::error_code ec;
+    fs::create_directories(to.parent_path(), ec);
+    fs::rename(from, to, ec);
+    if (!ec) return;
+    fs::copy_file(from, to, fs::copy_options::overwrite_existing, ec);
+    if (ec) throw Failure("can't move " + PathText(from) + " to " + PathText(to));
+    fs::remove(from, ec);
+}
+
+fs::path IniPath(const App& app) {
+    const std::string place = app.Str("config_place");
+    const fs::path ini = IniPlace(place), other = IniPlace(place == "port" ? "appdata" : "port");
+    std::error_code ec;
+    if (!fs::exists(ini, ec) && fs::is_regular_file(other, ec)) try {
+        MoveTo(other, ini);
+        Say("Settings: wbp.ini moved to " + PathText(ini));
+    } catch (const Failure& error) {
+        SayError(error.what());
+    }
+    return ini;
+}
+
+void MoveIni(const App& from, const App& to) {
+    const fs::path a = IniPlace(from.Str("config_place")), b = IniPlace(to.Str("config_place"));
+    std::error_code ec;
+    if (a != b && fs::is_regular_file(a, ec)) MoveTo(a, b);
+}
 
 const std::map<std::string, std::string>& Ini::Defaults() {
     static const std::map<std::string, std::string> defaults = [] {
@@ -233,11 +274,11 @@ std::string Ini::Get(const std::string& key) const {
 
 const nlohmann::json& App::Defaults() {
     static const nlohmann::json defaults = {
-        {"ui_language", ""}, {"game_dir", PathText(PortDir().parent_path() / L"CUSA03173")}, {"user_dir", ""},
+        {"ui_language", ""}, {"config_place", "appdata"}, {"game_dir", PathText(PortDir().parent_path() / L"CUSA03173")}, {"user_dir", ""},
         {"mods_dir", ""}, {"mods_enabled", true}, {"patches_dir", ""}, {"language", "1"},
         {"player_name", ""}, {"fullscreen", false}, {"display", ""}, {"hdr", false}, {"present_mode", "Mailbox"},
         {"fps_mode", "uncap"}, {"frame_cap", ""}, {"draw_pipe", ""}, {"readbacks", ""},
-        {"frames_ahead", ""}, {"frame_stats", false}, {"gpu_profile", false},
+        {"frames_ahead", ""}, {"frame_stats", false}, {"gpu_profile", false}, {"launcher_fps", false},
         {"vk_validation", false}, {"extra_env", ""}, {"close_on_play", false},
         {"check_updates", true}, {"online", false}, {"online_server", "srv.shadps4.net:31313"},
         {"online_webapi", ""}, {"online_npid", ""}, {"online_password", ""}, {"online_upnp", true},
@@ -342,6 +383,7 @@ std::string WebapiSetting(const App& app) {
 EnvBlock GameEnvironment(const App& app) {
     EnvBlock env = EnvBlock::Current();
     env.Set("BB_GAME_DIR", app.Str("game_dir"));
+    if (!HasEnv("BB_CONFIG")) env.Set("BB_CONFIG", PathText(IniPath(app)));
     if (!app.Str("user_dir").empty()) env.Set("BB_USER_DIR", app.Str("user_dir"));
     env.Set("BB_MODS_DIR", PathText(ModsDir(app)));
     env.Set("BB_MODS_CONFIG", PathText(DataDir() / L"mods.json"));

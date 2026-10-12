@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_semaphore.h"
@@ -78,9 +80,28 @@ void Semaphore::Wait(u64 tick) {
             ASSERT_MSG(false, "Device lost while waiting for a submission (GPU hang)");
         }
         if (result == vk::Result::eTimeout && ++seconds % 10 == 0) {
-            std::fprintf(stderr, "GPU: no progress for %u s waiting for submission %llu (at %llu)\n",
+            const u64 used = instance.CanReportMemoryUsage() ? instance.GetDeviceMemoryUsage() >> 20 : 0;
+            const u64 budget =
+                instance.CanReportMemoryUsage() ? instance.GetDeviceMemoryBudgetNow() >> 20 : 0;
+            Refresh();
+            std::fprintf(stderr,
+                         "GPU: no progress for %u s waiting for submission %llu (at %llu); video "
+                         "memory %llu of %llu MiB\n",
                          seconds, (unsigned long long)tick,
-                         (unsigned long long)gpu_tick.load(std::memory_order_relaxed));
+                         (unsigned long long)gpu_tick.load(std::memory_order_relaxed),
+                         (unsigned long long)used, (unsigned long long)budget);
+            // wbp: one submission takes milliseconds; after this long the GPU will not get
+            // there (a lost wait, a driver stuck paging memory). The game ends with the reason
+            // instead of a frozen picture the player has to kill. BB_GPU_HANG_SECONDS=0: wait.
+            static const u32 give_up = [] {
+                const char* env = std::getenv("BB_GPU_HANG_SECONDS");
+                return env ? u32(std::max(0, std::atoi(env))) : 30u;
+            }();
+            ASSERT_MSG(give_up == 0 || seconds < give_up,
+                       "The GPU stopped responding: no progress for {} s (video memory {} of {} "
+                       "MiB). Lower the output resolution or the graphics preset; if it keeps "
+                       "happening, update the graphics driver.",
+                       seconds, used, budget);
         }
     }
     Refresh();

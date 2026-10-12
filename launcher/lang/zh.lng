@@ -237,3 +237,11 @@ Add to Steam	添加到 Steam
 The WebAPI box holds the game server address; it is ignored.	WebAPI 栏中填写的是游戏服务器地址，将被忽略。
 "Play online" is off: the game starts offline.	“在线游玩”未开启：游戏将以离线方式启动。
 Could not add the game to Steam: {}	无法将游戏添加到 Steam：{}
+Settings file (wbp.ini)	设置文件 (wbp.ini)
+AppData (default)	AppData（默认）
+AppData: {}\nPort folder: {}	AppData：{}\n移植版文件夹：{}
+Settings file: {}	设置文件：{}
+High: upscaled from ×1.5	高：从 ×1.5 放大
+Ultra: native resolution	极高：原生分辨率
+Maximum: native, highest model detail	最高：原生，最高模型细节
+Launcher FPS counter (overlay)	显示启动器的 FPS

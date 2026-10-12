@@ -237,3 +237,11 @@ Add to Steam	Steam に追加
 The WebAPI box holds the game server address; it is ignored.	WebAPI 欄にゲームサーバーのアドレスが入っているため、無視されます。
 "Play online" is off: the game starts offline.	「オンラインでプレイ」がオフのため、オフラインで起動します。
 Could not add the game to Steam: {}	ゲームを Steam に追加できませんでした: {}
+Settings file (wbp.ini)	設定ファイル (wbp.ini)
+AppData (default)	AppData（既定）
+AppData: {}\nPort folder: {}	AppData: {}\nポートのフォルダー: {}
+Settings file: {}	設定ファイル: {}
+High: upscaled from ×1.5	高: ×1.5 からアップスケール
+Ultra: native resolution	ウルトラ: ネイティブ解像度
+Maximum: native, highest model detail	最大: ネイティブ、最高のモデル詳細
+Launcher FPS counter (overlay)	ランチャーの FPS を表示

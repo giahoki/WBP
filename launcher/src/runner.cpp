@@ -140,7 +140,7 @@ int RunGame(std::vector<std::wstring> args) {
         SetCurrentDirectoryW(PortDir().c_str());
         const fs::path data = DataDir(), out = data / L"out";
         fs::create_directories(out);
-        DefaultEnv("BB_CONFIG", PathText(data / L"wbp.ini"));
+        DefaultEnv("BB_CONFIG", PathText(Ini::Path()));
         const fs::path config = PathFrom(Env("BB_CONFIG"));
         std::error_code ec;
         if (!HasEnv("BB_FSR411_DIR") && !fs::is_directory(PortDir() / L"fsr4_411", ec) && fs::is_directory(data / L"fsr4_411", ec))

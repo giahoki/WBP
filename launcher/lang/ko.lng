@@ -237,3 +237,11 @@ Add to Steam	Steam에 추가
 The WebAPI box holds the game server address; it is ignored.	WebAPI 칸에 게임 서버 주소가 들어 있어 무시됩니다.
 "Play online" is off: the game starts offline.	"온라인으로 플레이"가 꺼져 있어 오프라인으로 시작합니다.
 Could not add the game to Steam: {}	게임을 Steam에 추가할 수 없습니다: {}
+Settings file (wbp.ini)	설정 파일 (wbp.ini)
+AppData (default)	AppData (기본값)
+AppData: {}\nPort folder: {}	AppData: {}\n포트 폴더: {}
+Settings file: {}	설정 파일: {}
+High: upscaled from ×1.5	높음: ×1.5에서 업스케일
+Ultra: native resolution	울트라: 네이티브 해상도
+Maximum: native, highest model detail	최대: 네이티브, 최고 모델 디테일
+Launcher FPS counter (overlay)	런처 FPS 표시

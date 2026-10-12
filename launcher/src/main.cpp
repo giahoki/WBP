@@ -150,6 +150,17 @@ struct WindowFx {
     }
 };
 
+// Refresh rate of the monitor the window is on (60 if Windows does not say).
+int MonitorRefreshHz(HWND hwnd) {
+    MONITORINFOEXW info{};
+    info.cbSize = sizeof(info);
+    if (!GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &info)) return 60;
+    DEVMODEW mode{};
+    mode.dmSize = sizeof(mode);
+    if (!EnumDisplaySettingsW(info.szDevice, ENUM_CURRENT_SETTINGS, &mode) || mode.dmDisplayFrequency <= 1) return 60;
+    return int(mode.dmDisplayFrequency);
+}
+
 void SetTitleBar(HWND hwnd) {
     BOOL dark = TRUE;
     DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof(dark));
@@ -244,7 +255,8 @@ int RunWindow() {
     fx.Remember();  // where Windows placed it
     glfwShowWindow(win.glfw);
     const auto start = std::chrono::steady_clock::now();
-    double last = 0, closing_at = -1;
+    double last = 0, closing_at = -1, refresh_checked = -10;
+    int refresh_hz = 60;
     Motion motion;
     fx.Set(0, WindowFx::RISE);  // shown transparent and a little low, then rises into place
     while (!glfwWindowShouldClose(win.glfw)) {
@@ -255,11 +267,13 @@ int RunWindow() {
             glfwWaitEventsTimeout(0.25);
             continue;
         }
-        // About 60 frames per second in front, 20 behind other windows, and 1 behind the game: the
+        // In front: the monitor's refresh rate (V-Sync paces the frames; the timer only keeps a
+        // missing V-Sync from spinning). 20 behind other windows, and 1 behind the game: the
         // launcher draws on the default adapter (the integrated GPU of a hybrid laptop), whose
         // animated background kept it busy all through the game.
         const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-        const double period = focused ? 1.0 / 60 : launcher.GameRunning() ? 1.0 : 1.0 / 20;
+        if (now - refresh_checked > 1.0) refresh_hz = MonitorRefreshHz(glfwGetWin32Window(win.glfw)), refresh_checked = now;
+        const double period = focused ? 0.9 / refresh_hz : launcher.GameRunning() ? 1.0 : 1.0 / 20;
         if (now - last < period) {
             glfwWaitEventsTimeout(period - (now - last));
             continue;
@@ -286,12 +300,16 @@ int RunWindow() {
             closing_at = now;
             if (!fx.opening) fx.Remember();  // it may have been moved since it opened
         }
+        const auto build_start = std::chrono::steady_clock::now();
         win.ui.BeginFrame();
         win.gfx.BeginFrame(float(now), motion.Step(in, win.gfx.Width(), win.gfx.Height(), now, in.dt, closing_at),
                            launcher.ArtLayer());
         launcher.Frame();
         win.ui.EndFrame();
+        const auto draw_start = std::chrono::steady_clock::now();
         win.gfx.EndFrame();
+        const auto ms = [](auto a, auto b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+        launcher.FrameTimes(ms(build_start, draw_start), ms(draw_start, std::chrono::steady_clock::now()));
         fx.Step(now, closing_at);
         if (closing_at >= 0 && now - closing_at >= Motion::CLOSE_TIME) glfwSetWindowShouldClose(win.glfw, GLFW_TRUE);
         if (win.ui.cursor != shown) {

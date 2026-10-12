@@ -708,9 +708,11 @@ void BufferCache::SubmitPendingArenaBinds(Vulkan::SubmitInfo& info) {
         .pSignalSemaphores = &signal_sema,
     };
 
+    // wbp: a refused bind never signals signal_tick, and the submission waiting for it blocked
+    // the queue for good (see SubmitOrRetry).
+    Vulkan::SubmitOrRetry(instance, "sparse memory bind",
+                          [&] { return instance.GetGraphicsQueue().bindSparse(sparse_info); });
     info.AddWait(signal_sema, signal_tick);
-    auto submit_result = instance.GetGraphicsQueue().bindSparse(sparse_info);
-    ASSERT_MSG(submit_result != vk::Result::eErrorDeviceLost, "Device lost during submit");
 
     pending_binds.clear();
 }
