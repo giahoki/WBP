@@ -91,7 +91,8 @@ static SDL_Gamepad *current_gamepad(void) {
  * (Shift+Mouse1 strong attack, Mouse1 attack). Mouse inputs count only while the cursor is
  * captured (runtime_mouse.c). The file is re-read when it changes, also during play. Keys held
  * for movement override the stick; diagonals stay on the stick's circle. Reserved by the port:
- * Insert (menu), F9 (pad recording), F10 (mouse camera), left Alt (free the cursor). */
+ * Insert (menu), F9 (pad recording), F10 (mouse camera), left Alt (free the cursor).
+ * quick_save is not a pad input: a press copies the save folder. */
 enum { IN_KEY, IN_MOUSE, IN_WHEEL };
 enum { MOD_SHIFT=1, MOD_CTRL=2, MOD_ALT=4 };
 enum { AX_LX, AX_LY, AX_RX, AX_RY };
@@ -127,6 +128,7 @@ static const Action actions[]={
     {"key_items",0,-1,0,2,"T"},
     {"camera_up",0,AX_RY,-1,0,""}, {"camera_down",0,AX_RY,1,0,""},
     {"camera_left",0,AX_RX,-1,0,""}, {"camera_right",0,AX_RX,1,0,""},
+    {"quick_save",0,-1,0,0,"F6"}, /* the port's: copies the save folder (runtime_savedata.c) */
 };
 #define ACTION_COUNT (sizeof(actions)/sizeof(*actions))
 #define MAX_BINDINGS 4
@@ -341,7 +343,7 @@ static void sample_bindings(PadData *d, const bool *k) {
         }
     int neg[4]={0}, pos[4]={0};
     uint32_t split=0;
-    int menu=0;
+    int menu=0, quick=0;
     for (size_t a=0;a<ACTION_COUNT;++a) {
         int active=0;
         for (int b=0;b<bound_count[a] && !active;++b) {
@@ -354,6 +356,7 @@ static void sample_bindings(PadData *d, const bool *k) {
         }
         if (!active) continue;
         const Action *act=&actions[a];
+        if (!strcmp(act->name,"quick_save")) { quick=1; continue; }
         if (act->axis>=0) { if (act->dir<0) neg[act->axis]=1; else pos[act->axis]=1; }
         else if (act->touch) touch_click(d,act->touch==2);
         else if (native_mode && native_action(a)>=0) split|=1u<<native_action(a);
@@ -375,6 +378,9 @@ static void sample_bindings(PadData *d, const bool *k) {
     }
     if (d->buttons & BTN_L2) d->l2=255;
     if (d->buttons & BTN_R2) d->r2=255;
+    static int quick_was;
+    if (quick && !quick_was) runtime_savedata_quicksave();
+    quick_was=quick;
 }
 
 static void sample_host(PadData *d) {

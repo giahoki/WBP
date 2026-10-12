@@ -706,6 +706,51 @@ void Launcher::FpsCounter() {
     ui_.g.Text(fps_detail_, Rect{16, 35, w, 16}, small, true);
 }
 
+// The game's quick save key copies <user>/savedata to savedata_quick (runtime_savedata.c).
+void Launcher::RestoreQuickSave() {
+    if (GameRunning()) {
+        Notify(T("Close the game first: it keeps its progress in memory and would save over the restored files.",
+                 "Сначала закройте игру: она держит прогресс в памяти и сохранит поверх восстановленного."),
+               true);
+        return;
+    }
+    const fs::path user = UserDir(app_), saves = user / L"savedata", quick = user / L"savedata_quick",
+                   before = user / L"savedata_before_quick_load";
+    std::error_code ec;
+    if (!fs::is_directory(quick, ec)) {
+        Notify(T("No quick save yet: press F6 in the game.", "Быстрого сохранения ещё нет: нажмите F6 в игре."), true);
+        return;
+    }
+    fs::remove_all(before, ec);
+    if (fs::exists(saves, ec)) fs::rename(saves, before, ec);
+    if (ec) {
+        Notify(Fmt(T("Could not move the saves aside: {}", "Не удалось отложить сейвы: {}"), ec.message()), true);
+        return;
+    }
+    fs::copy(quick, saves, fs::copy_options::recursive, ec);
+    if (ec) {
+        fs::remove_all(saves, ec);
+        fs::rename(before, saves, ec);
+        Notify(T("Could not restore the quick save; the saves are unchanged.",
+                 "Не удалось восстановить быстрое сохранение; сейвы не изменены."),
+               true);
+        return;
+    }
+    const auto when = fs::last_write_time(quick, ec);
+    std::string stamp;
+    if (!ec) {
+        // (libc++ has no clock_cast: the file time relative to now)
+        const auto sys = std::chrono::system_clock::now() +
+                         std::chrono::duration_cast<std::chrono::system_clock::duration>(
+                             when - fs::file_time_type::clock::now());
+        const std::time_t t = std::chrono::system_clock::to_time_t(sys);
+        char text[32];
+        std::strftime(text, sizeof text, "%d.%m %H:%M", std::localtime(&t));
+        stamp = text;
+    }
+    Notify(Fmt(T("Quick save from {} restored.", "Быстрое сохранение от {} восстановлено."), stamp));
+}
+
 const std::vector<std::pair<std::string, Text>>& Launcher::Tabs() {
     static const std::vector<std::pair<std::string, Text>> tabs = {
         {"play", {"Play", "Играть"}},           {"graphics", {"Graphics", "Графика"}},
@@ -1347,6 +1392,11 @@ float Launcher::GamePage(float x, float y, float w) {
     AppChoice(f, "language", T("Game language", "Язык игры"), LANGUAGES);
     AppEntry(f, "player_name", T("Player name", "Имя игрока"),
              T("Where the game shows the PSN name; empty: the default.", "Где игра показывает имя PSN; пусто — по умолчанию."));
+    if (f.Buttons("quick_save", {T("Restore quick save", "Восстановить быстрое сохранение")}) == 0) RestoreQuickSave();
+    f.Note(T("The quick save key (F6, Controls page) copies the saves during play. Restoring puts that copy back; the "
+             "saves it replaces are kept in savedata_before_quick_load.",
+             "Клавиша быстрого сохранения (F6, вкладка «Управление») копирует сейвы во время игры. Восстановление "
+             "возвращает эту копию; заменённые сейвы остаются в savedata_before_quick_load."));
     f.Section(T("Effects", "Эффекты"));
     f.Warning(VersionWarning());
     for (const Flag& e : EFFECTS) IniFlag(f, e.key, e.title());

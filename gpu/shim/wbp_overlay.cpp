@@ -455,6 +455,28 @@ void TextEntryBox() {
     ImGui::End();
 }
 
+std::string toast_text;
+std::chrono::steady_clock::time_point toast_until;
+std::atomic<bool> toast_active{false};
+
+void ToastBox() {
+    if (std::chrono::steady_clock::now() >= toast_until) {
+        toast_active = false;
+        return;
+    }
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+                                   viewport->WorkPos.y + 40.0f * base_scale),
+                            ImGuiCond_Always, ImVec2(0.5f, 0.0f));
+    ImGui::SetNextWindowBgAlpha(0.65f);
+    ImGui::Begin("##toast", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                     ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoNav |
+                     ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::TextUnformatted(toast_text.c_str());
+    ImGui::End();
+}
+
 void FpsCounter() {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     const float pad = 12.0f * base_scale;
@@ -648,7 +670,15 @@ bool HandleEvent(const SDL_Event& event) {
 }
 
 bool Visible() {
-    return initialized && (menu_open || text_entry_active || BbSettings::Get().show_fps);
+    return initialized &&
+           (menu_open || text_entry_active || toast_active || BbSettings::Get().show_fps);
+}
+
+void Toast(const std::string& text) {
+    std::scoped_lock lock{imgui_mutex};
+    toast_text = text;
+    toast_until = std::chrono::steady_clock::now() + std::chrono::milliseconds(2500);
+    toast_active = true;
 }
 
 bool CapturesInput() {
@@ -696,6 +726,9 @@ void Render(vk::CommandBuffer cmdbuf, vk::ImageView view, vk::Extent2D extent) {
     }
     if (text_entry_active) {
         TextEntryBox();
+    }
+    if (toast_active) {
+        ToastBox();
     }
     ImGui::Render();
 

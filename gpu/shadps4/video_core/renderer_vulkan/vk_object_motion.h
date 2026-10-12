@@ -73,8 +73,11 @@ private:
     static constexpr u32 FrameSlots = 4;
     static constexpr u32 ParamsPerFrame = 8192;
     // Positions (device local): two halves (current/previous frame) of vec4; element 0 is reserved.
-    static constexpr u32 PositionsPerFrame = 4u << 20;
-    Motion::History history{PositionsPerFrame};
+    // wbp: 4 Mi vertices (128 MiB) from 6 GB of video memory, 2 Mi (64 MiB) below: draws past
+    // the capacity just go without object motion ("capacity skips" in the frame statistics).
+    static u32 PositionsFor(const Instance& instance);
+    const u32 positions_per_frame;
+    Motion::History history{positions_per_frame};
     Motion::IndexRangeCache index_ranges;
     std::array<u64, FrameSlots> params_ticks{};
     vk::Buffer params_buffer{};

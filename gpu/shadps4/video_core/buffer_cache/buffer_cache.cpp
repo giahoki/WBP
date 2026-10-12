@@ -97,9 +97,60 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
         (blocks_per_arena_page * num_arena_pages) * sizeof(vk::DeviceAddress);
     fault_manager = std::make_unique<FaultManager>(instance, scheduler, *this, block_shift,
                                                    blocks_per_arena_page * num_arena_pages);
-    bda_pagetable_buffer = std::make_unique<Buffer>(
-        instance, 0, bda_pagetable_size, MemoryType::DeviceLocal, "BDA Page Table Buffer");
-    runtime.FillBuffer(bda_pagetable_buffer.get(), 0u, bda_pagetable_size, 0u);
+    const auto& physical = instance.GetPhysicalDevice();
+    bda_sparse = physical.getProperties().sparseProperties.residencyNonResidentStrict &&
+                 physical.getFeatures().sparseResidencyBuffer && !std::getenv("BB_DENSE_BDA_TABLE");
+    if (bda_sparse) {
+        bda_pagetable_buffer = std::make_unique<Buffer>(instance, 0, bda_pagetable_size,
+                                                        MemoryType::Sparse, "BDA Page Table Buffer");
+        const auto table_reqs = device.getBufferMemoryRequirements(bda_pagetable_buffer->Handle());
+        bda_page_size = std::max<u64>(table_reqs.alignment, 64_KB);
+        bda_memory_type = FindMemoryType(instance.GetMemoryProperties(),
+                                         vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                         table_reqs.memoryTypeBits)
+                              .value();
+        bda_page_bound.assign((bda_pagetable_size + bda_page_size - 1) / bda_page_size, false);
+    } else {
+        bda_pagetable_buffer = std::make_unique<Buffer>(
+            instance, 0, bda_pagetable_size, MemoryType::DeviceLocal, "BDA Page Table Buffer");
+        runtime.FillBuffer(bda_pagetable_buffer.get(), 0u, bda_pagetable_size, 0u);
+    }
+    fixed_bytes = (bda_sparse ? 0 : bda_pagetable_size) + blocks_per_arena_page * num_arena_pages / 8 +
+                  STREAM_BUFFER_SIZE;
+    std::printf("Buffer cache: sparse block %llu KiB, page table %llu MiB (%s), fault buffer %llu MiB\n",
+                (unsigned long long)(block_size >> 10), (unsigned long long)(bda_pagetable_size >> 20),
+                bda_sparse ? "sparse, backed where used" : "dense",
+                (unsigned long long)((blocks_per_arena_page * num_arena_pages / 8) >> 20));
+}
+
+void BufferCache::EnsureBdaTablePages(u64 first_block, u64 end_block) {
+    if (!bda_sparse || first_block >= end_block) {
+        return;
+    }
+    constexpr u64 Entry = sizeof(vk::DeviceAddress);
+    const u64 first_page = first_block * Entry / bda_page_size;
+    const u64 last_page = (end_block * Entry - 1) / bda_page_size;
+    for (u64 page = first_page; page <= last_page && page < bda_page_bound.size(); ++page) {
+        if (bda_page_bound[page]) {
+            continue;
+        }
+        const vk::MemoryAllocateInfo alloc_info = {
+            .allocationSize = bda_page_size,
+            .memoryTypeIndex = bda_memory_type,
+        };
+        const auto memory = Vulkan::Check(instance.GetDevice().allocateMemory(alloc_info));
+        // Bound before the submission that records the fill and the entries (as arena memory).
+        BindsForArena(bda_pagetable_buffer.get())
+            ->binds.push_back(vk::SparseMemoryBind{
+                .resourceOffset = page * bda_page_size,
+                .size = bda_page_size,
+                .memory = memory,
+                .memoryOffset = 0,
+            });
+        runtime.FillBuffer(bda_pagetable_buffer.get(), page * bda_page_size, bda_page_size, 0u);
+        bda_page_bound[page] = true;
+        fixed_bytes.fetch_add(bda_page_size, std::memory_order_relaxed);
+    }
 }
 
 BufferCache::~BufferCache() = default;
@@ -475,6 +526,7 @@ void BufferCache::EnsureResident(const Buffer* arena, u64 first_block, u64 last_
         .memoryTypeIndex = arena_memory_type_index,
     };
     const auto device_memory = Vulkan::Check(instance.GetDevice().allocateMemory(alloc_info));
+    resident_bytes.fetch_add(alloc_info.allocationSize, std::memory_order_relaxed);
 
     boost::container::small_vector<vk::BufferCopy, 8> copies;
     const auto staging =
@@ -505,6 +557,7 @@ void BufferCache::EnsureResident(const Buffer* arena, u64 first_block, u64 last_
         for (u32 block = 0; block < bind.size; block += block_size) {
             *(bda_addrs++) = arena->BufferDeviceAddress() + bind.resourceOffset + block;
         }
+        EnsureBdaTablePages(backing.start, backing.end);
         const u64 copy_size = (backing.end - backing.start) * sizeof(vk::DeviceAddress);
         copies.emplace_back(offset, backing.start * sizeof(vk::DeviceAddress), copy_size);
         offset += copy_size;

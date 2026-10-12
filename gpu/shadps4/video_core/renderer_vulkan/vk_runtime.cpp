@@ -511,9 +511,14 @@ void Runtime::CopyColorAndDepth(VideoCore::Image* src, VideoCore::Image* dst) {
             CopyImage(src, dst);
         } else {
             // Perform depth from/to color copy using the intermediate copy buffer.
-            static constexpr size_t COPY_BUFFER_SIZE = 128_MB;
+            // wbp: sized for this image (8 bytes a texel covers every depth/colour pair) in
+            // 4 MiB steps, instead of a fixed 128 MiB of video memory kept for 30 s.
+            const u64 texels = u64(src->info.size.width) * src->info.size.height *
+                               src->info.size.depth * src->info.resources.layers;
+            const u64 copy_size =
+                Common::AlignUp(std::max<u64>(texels * 8, src->info.guest_size), 4_MB);
             const auto copy_ref =
-                staging_pool.Request(COPY_BUFFER_SIZE, VideoCore::MemoryType::DeviceLocal);
+                staging_pool.Request(copy_size, VideoCore::MemoryType::DeviceLocal);
             CopyImageWithBuffer(src, dst, copy_ref.buffer, copy_ref.offset);
         }
     } else if (src->info.num_samples == 1 && dst->info.num_samples > 1 &&

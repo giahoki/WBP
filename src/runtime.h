@@ -105,5 +105,7 @@ const char *runtime_file_user_dir(void);
 void runtime_savedata_configure(const char *title);
 uintptr_t runtime_savedata_resolve(const char *name);
 void runtime_savedata_report(void);
+/* Quick save: copies the save folder now, or after the save in progress. */
+void runtime_savedata_quicksave(void);
 void runtime_thread_attach_host(const char *name);
 #endif

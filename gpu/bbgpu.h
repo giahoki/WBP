@@ -32,6 +32,8 @@ int bbgpu_text_input_begin(const char *initial_utf8, const char *prompt_utf8);
 int bbgpu_text_input_poll(char *out_utf8, uint64_t size);
 /* 1 while the in-game settings menu is open: the game's pad input is held neutral. */
 int bbgpu_overlay_captures_input(void);
+/* A short message at the top of the screen for a few seconds (UTF-8; any thread). */
+void bbgpu_overlay_toast(const char *utf8);
 /* BB_BENCH=1 (gpu/shim/wbp_bench.h): 1 while the pad should hold Cross (title, Continue). */
 int bbgpu_bench_press(void);
 /* Native mouse camera speed from the settings (wbp.ini, in-game menu); 1.0 default. */

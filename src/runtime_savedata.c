@@ -6,6 +6,7 @@
  * Metadata lives beside the directory so the guest's own files are untouched. */
 #define _GNU_SOURCE
 #include "runtime.h"
+#include "gpu/bbgpu.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -156,6 +157,76 @@ static int remove_entry(const char *path, const struct stat *st, int flag, struc
 static void remove_tree(const char *path) { nftw(path,remove_entry,16,FTW_DEPTH|FTW_PHYS); }
 #endif
 
+/* Quick save (wbp.ini key_quick_save, F6 by default): a copy of <user>/savedata in
+ * <user>/savedata_quick, which the launcher puts back ("Restore quick save"). The game writes
+ * each save file through a temporary copy committed when it is closed, before the unmount, so
+ * the folder is consistent while nothing is mounted; a key press during a save is served at its
+ * unmount. The lock is held while copying: a save starting meanwhile waits (tens of ms). */
+static int quick_pending;
+static int copy_file(const char *from, const char *to) {
+    FILE *in=fopen(from,"rb");
+    if (!in) return -1;
+    FILE *out=fopen(to,"wb");
+    if (!out) { fclose(in); return -1; }
+    char buffer[65536];
+    size_t n;
+    int ok=1;
+    while ((n=fread(buffer,1,sizeof(buffer),in))>0) if (fwrite(buffer,1,n,out)!=n) { ok=0; break; }
+    ok=!ferror(in) && ok;
+    fclose(in);
+    return !fclose(out) && ok ? 0 : -1;
+}
+static int copy_tree(const char *from, const char *to) {
+    if (make_dirs(to)) return -1;
+    DIR *dir=opendir(from);
+    if (!dir) return -1;
+    int result=0;
+    struct dirent *e;
+    while (!result && (e=readdir(dir))) {
+        if (!strcmp(e->d_name,".") || !strcmp(e->d_name,"..")) continue;
+        if (strstr(e->d_name,".bbtmp")) continue; /* a half-written file of a failed save */
+        char a[760], b[760];
+        snprintf(a,sizeof(a),"%s/%s",from,e->d_name);
+        snprintf(b,sizeof(b),"%s/%s",to,e->d_name);
+        struct stat st;
+        if (stat(a,&st)) { result=-1; break; }
+        result=S_ISDIR(st.st_mode) ? copy_tree(a,b) : copy_file(a,b);
+    }
+    closedir(dir);
+    return result;
+}
+/* Called with the lock held and nothing mounted. */
+static void quick_copy(void) {
+    quick_pending=0;
+    char source[700], target[700], temp[720];
+    snprintf(source,sizeof(source),"%s/savedata",runtime_file_user_dir());
+    snprintf(target,sizeof(target),"%s/savedata_quick",runtime_file_user_dir());
+    snprintf(temp,sizeof(temp),"%s.tmp",target);
+    remove_tree(temp);
+    const int ok=!copy_tree(source,temp);
+    if (ok) {
+        remove_tree(target);
+        if (rename(temp,target)==0) {
+            printf("Runtime: quick save: %s copied to %s\n",source,target);
+            bbgpu_overlay_toast("Быстрое сохранение / Quick save");
+            return;
+        }
+    }
+    remove_tree(temp);
+    printf("Runtime: quick save failed (copying %s)\n",source);
+    bbgpu_overlay_toast("Быстрое сохранение не удалось / Quick save failed");
+}
+static int any_mounted(void) {
+    for (int i=0;i<SLOTS;++i) if (slots[i].used) return 1;
+    return 0;
+}
+void runtime_savedata_quicksave(void) {
+    pthread_mutex_lock(&lock);
+    if (any_mounted()) quick_pending=1;
+    else quick_copy();
+    pthread_mutex_unlock(&lock);
+}
+
 static ABI int32_t save_initialize(const void *param) { (void)param; initialized=1; return 0; }
 static ABI int32_t save_terminate(void) {
     if (!initialized) return ERR_NOT_INITIALIZED;
@@ -215,6 +286,7 @@ static ABI int32_t save_umount(const MountPoint *point) {
     pthread_mutex_lock(&lock);
     int slot=slot_of(point);
     if (slot>=0) { runtime_file_unmount(point->data); slots[slot].used=0; }
+    if (quick_pending && !any_mounted()) quick_copy();
     pthread_mutex_unlock(&lock);
     return slot>=0 ? 0 : ERR_NOT_FOUND;
 }

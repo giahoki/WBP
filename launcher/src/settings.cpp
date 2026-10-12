@@ -136,6 +136,9 @@ const std::vector<KeyGroup> KEY_BINDINGS = {
       {"camera_down", {"Camera down", "Камера вниз"}, ""},
       {"camera_left", {"Camera left", "Камера влево"}, ""},
       {"camera_right", {"Camera right", "Камера вправо"}, ""}}},
+    {{"Port", "Порт"},
+     {{"quick_save", {"Quick save (a copy of the saves; restored on the Game page)",
+                      "Быстрое сохранение (копия сейвов; восстановить на вкладке «Игра»)"}, "F6"}}},
 };
 
 std::map<std::string, std::vector<std::string>> LoadBindings(const std::map<std::string, std::string>& ini) {

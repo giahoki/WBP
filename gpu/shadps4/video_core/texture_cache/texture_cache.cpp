@@ -889,6 +889,7 @@ void TextureCache::RegisterImage(ImageId image_id) {
     image.flags |= ImageFlagBits::Registered;
     ++registry_generation;
     total_used_memory += Common::AlignUp(image.info.guest_size, 1024);
+    image_bytes += Common::AlignUp(image.info.guest_size, 1024), ++image_count;
     image.lru_id = lru_cache.Insert(image_id, gc_tick);
     image.lru_touched_tick = gc_tick;
     ForEachPage(image.info.guest_address, image.info.guest_size,
@@ -903,6 +904,7 @@ void TextureCache::UnregisterImage(ImageId image_id) {
     ++registry_generation;
     lru_cache.Free(image.lru_id);
     total_used_memory -= Common::AlignUp(image.info.guest_size, 1024);
+    image_bytes -= Common::AlignUp(image.info.guest_size, 1024), --image_count;
     ForEachPage(image.info.guest_address, image.info.guest_size, [this, image_id](u64 page) {
         const auto page_it = page_table.find(page);
         if (page_it == nullptr) {
@@ -1129,6 +1131,11 @@ void TextureCache::GarbageCollectImages() {
                         (unsigned long long)(critical_gc_memory >> 20),
                         (unsigned long long)(budget_now >> 20),
                         (unsigned long long)gc_evictions, (unsigned long long)gc_downloads);
+            // What holds it: images, guest memory resident as buffers, fixed buffers.
+            std::printf("Video memory: images %llu MiB (%llu), buffers %llu MiB, fixed %llu MiB\n",
+                        (unsigned long long)(image_bytes >> 20), (unsigned long long)image_count,
+                        (unsigned long long)(buffer_cache.ResidentBytes() >> 20),
+                        (unsigned long long)(buffer_cache.FixedBytes() >> 20));
             gc_report_time = now;
             gc_evictions = gc_downloads = 0;
         }

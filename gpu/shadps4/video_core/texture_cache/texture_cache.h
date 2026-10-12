@@ -400,6 +400,7 @@ private:
     std::unordered_set<ImageId> download_images;
     u64 total_used_memory = 0;
     u64 gc_evictions = 0, gc_downloads = 0; ///< wbp: pressure report
+    u64 image_bytes = 0, image_count = 0;   ///< wbp: registered images (guest size)
     std::chrono::steady_clock::time_point gc_report_time{};
     u64 trigger_gc_memory = 0;
     u64 pressure_gc_memory = 0;

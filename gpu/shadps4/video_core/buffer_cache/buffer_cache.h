@@ -112,6 +112,15 @@ public:
     /// Commits pending sparse buffer memory binds. Must be called before every scheduler submit.
     void SubmitPendingArenaBinds(Vulkan::SubmitInfo& info);
 
+    /// wbp: video memory of the guest memory made resident in the arenas (never released) and
+    /// of the fixed buffers (BDA page table, fault buffer), for the memory pressure report.
+    u64 ResidentBytes() const {
+        return resident_bytes.load(std::memory_order_relaxed);
+    }
+    u64 FixedBytes() const {
+        return fixed_bytes.load(std::memory_order_relaxed);
+    }
+
 private:
     struct ArenaBinds {
         const Buffer* arena;
@@ -166,6 +175,15 @@ private:
 
     std::unique_ptr<FaultManager> fault_manager;
     std::unique_ptr<Buffer> bda_pagetable_buffer;
+    // wbp: the page table covers the whole 40-bit address space (128 MiB at 64 KiB blocks, 512
+    // MiB at 16 KiB) while the game uses a few GB of it. With strict non-resident reads
+    // (unbound memory reads as zero: "not resident", exactly what an empty entry means) the
+    // table is a sparse buffer and only its pages covering resident guest memory are backed.
+    bool bda_sparse{false};
+    u64 bda_page_size{0};
+    u32 bda_memory_type{0};
+    std::vector<bool> bda_page_bound;
+    void EnsureBdaTablePages(u64 first_block, u64 end_block);
 
     std::array<const Buffer*, MAX_ARENA_PAGES> address_space{};
     u64 arena_page_bits{MAX_ARENA_PAGE_BITS};
@@ -173,6 +191,8 @@ private:
     u64 num_arena_pages{u64{1} << (ADDRESS_SPACE_BITS - MAX_ARENA_PAGE_BITS)};
     std::deque<Buffer> arenas;
     std::vector<ArenaBinds> pending_binds;
+    std::atomic<u64> resident_bytes{0};
+    std::atomic<u64> fixed_bytes{0};
     Vulkan::Semaphore memory_semaphore;
 
     struct Backing : public Interval {

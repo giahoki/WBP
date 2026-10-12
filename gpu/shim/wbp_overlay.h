@@ -28,6 +28,8 @@ void UpdateTextInput(SDL_Window* window);
 
 /// Whether anything is drawn this frame (menu open or FPS counter on).
 bool Visible();
+// A short message at the top of the screen for a few seconds (any thread).
+void Toast(const std::string& text);
 
 /// Present thread: draws into `view` (layout ColorAttachmentOptimal).
 void Render(vk::CommandBuffer cmdbuf, vk::ImageView view, vk::Extent2D extent);

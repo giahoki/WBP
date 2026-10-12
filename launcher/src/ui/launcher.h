@@ -119,6 +119,7 @@ private:
     int fps_frames_ = 0;
     std::string fps_text_, fps_detail_;
     void FpsCounter();
+    void RestoreQuickSave();
 
     GameProcess game_;
     std::deque<std::string> log_;
