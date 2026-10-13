@@ -82,6 +82,9 @@ uintptr_t runtime_pad_resolve(const char *name);
 void runtime_pad_report(void);
 /* Native mouse camera (runtime_mouse.c): hooks the camera update in the loaded image. */
 void runtime_mouse_install(unsigned char *image);
+/* Experimental no-fog switch (runtime_fog.c): the image, then once per pad sample. */
+void runtime_fog_install(unsigned char *image);
+void runtime_fog_tick(void);
 /* Native input (runtime_input.c): hooks the pad device's button reads in the loaded image.
  * Split actions share a pad button but press only their own virtual inputs in native mode. */
 enum { NATIVE_DODGE, NATIVE_BACK, NATIVE_RUN, NATIVE_ACTION_COUNT };

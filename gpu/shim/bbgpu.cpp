@@ -342,6 +342,10 @@ extern "C" float bbgpu_mouse_sensitivity(void) {
     return BbSettings::Get().mouse_sensitivity.load(std::memory_order_relaxed);
 }
 
+extern "C" int bbgpu_no_fog(void) {
+    return BbSettings::Get().no_fog.load(std::memory_order_relaxed) ? 1 : 0;
+}
+
 extern "C" int bbgpu_overlay_captures_input(void) {
     return BbOverlay::CapturesInput() ? 1 : 0;
 }

@@ -46,6 +46,7 @@ inline constexpr Effect Effects[] = {
     {"tweak_no_camera_rotation", "Без автоповорота камеры", false},
     {"tweak_easy_run", "Бег с меньшим наклоном стика", false},
     {"tweak_ragdoll", "Физика тел как в Dark Souls", false},
+    {"tweak_no_wind", "Без ветра на одежде и волосах", false},
 };
 inline constexpr int EffectCount = int(sizeof(Effects) / sizeof(Effects[0]));
 /// Live output resolutions: the upscaler's output and the UI host targets.
@@ -84,6 +85,7 @@ struct Values {
     /// Applied at start (the launcher); the menu shows when a restart is needed.
     std::atomic<bool> effects[EffectCount]{};
     std::atomic<int> model_lod{0}; ///< -2 highest .. 2 lowest, 0 the game's
+    std::atomic<bool> no_fog{false};      ///< experimental: fog alpha 0 (src/runtime_fog.c)
     std::atomic<bool> low_shadows{false}; ///< shadow_quality=low: 1024 sun shadow cascades
     std::atomic<int> output_res{OutputDefault}; ///< index into OutputWidths
     /// Live resolution and preset changes (run.sh): 0 off by default (startup patch, fastest

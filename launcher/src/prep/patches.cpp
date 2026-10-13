@@ -51,6 +51,7 @@ const Effect EFFECTS[] = {
     {"tweak_no_camera_rotation", nullptr, "Disable Camera Auto Rotation via Movement"},
     {"tweak_easy_run", nullptr, "Sensitive Analog Input (easier to run)"},
     {"tweak_ragdoll", nullptr, "DS1-like physics"},
+    {"tweak_no_wind", nullptr, "Disable Wind (cloth, hair)"},
 };
 const std::map<std::string, std::string> MODEL_LOD = {
     {"-2", "Model LOD -2 (Highest)"}, {"1", "Model LOD 1 (Lower)"}, {"2", "Model LOD 2 (Lowest)"}};

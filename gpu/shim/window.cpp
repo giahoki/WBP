@@ -234,6 +234,13 @@ bool WindowSDL::PollEvents() {
                 mouse_enabled = !mouse_enabled;
                 std::printf("Mouse: camera %s (F10)\n", mouse_enabled ? "on" : "off");
             }
+            // F11: fullscreen (borderless, the desktop's mode) and back; the swapchain follows
+            // the new window size like any resize.
+            if (event.key.key == SDLK_F11 && !event.key.repeat) {
+                const bool fullscreen = (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) == 0;
+                SDL_SetWindowFullscreen(window, fullscreen);
+                std::printf("Window: %s (F11)\n", fullscreen ? "fullscreen" : "windowed");
+            }
             break;
         case SDL_EVENT_MOUSE_MOTION:
             if (mouse_captured) {

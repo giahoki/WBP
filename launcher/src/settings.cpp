@@ -40,6 +40,7 @@ const std::vector<Flag> TWEAKS = {
     {"tweak_no_camera_rotation", {"No camera auto-rotation while moving", "Без автоповорота камеры при движении"}, false},
     {"tweak_easy_run", {"Run with less stick tilt (about 70%)", "Бег при меньшем наклоне стика (около 70%)"}, false},
     {"tweak_ragdoll", {"Dark Souls-style ragdoll physics (corpses fly further)", "Физика тел как в Dark Souls (тела отлетают дальше)"}, false},
+    {"tweak_no_wind", {"No wind on clothes and hair (experimental)", "Без ветра на одежде и волосах (экспериментально)"}, false},
 };
 
 const std::vector<Choice> UPSCALERS = {{"auto", {"Auto (DLSS on GeForce RTX when installed, otherwise FSR 3.1)", "Авто (DLSS на GeForce RTX, если установлен, иначе FSR 3.1)"}},
@@ -205,7 +206,7 @@ const std::map<std::string, std::string>& Ini::Defaults() {
             {"object_motion", "1"}, {"show_fps", "1"}, {"output_res", "1920x1080"}, {"model_lod", "0"},
             {"shadow_quality", "high"}, {"frame_generation", "0"}, {"frame_generation_mode", "fixed"},
             {"live_resolution", "auto"}, {"mouse_sensitivity", "1.00"}, {"key_icons", "1"},
-            {"input_mode", "native"}};
+            {"input_mode", "native"}, {"no_fog", "0"}};
         for (auto* list : {&EFFECTS, &EXTRAS, &CHEATS, &TWEAKS})
             for (const Flag& f : *list) d[f.key] = f.on ? "1" : "0";
         for (const KeyGroup& g : KEY_BINDINGS)
@@ -217,7 +218,7 @@ const std::map<std::string, std::string>& Ini::Defaults() {
 
 bool Ini::IsFlag(const std::string& key) {
     static const std::vector<std::string> plain = {"sharpen", "object_motion", "show_fps", "key_icons",
-                                                   "frame_generation"};
+                                                   "frame_generation", "no_fog"};
     if (std::find(plain.begin(), plain.end(), key) != plain.end()) return true;
     for (auto* list : {&EFFECTS, &EXTRAS, &CHEATS, &TWEAKS})
         for (const Flag& f : *list)
@@ -225,9 +226,17 @@ bool Ini::IsFlag(const std::string& key) {
     return false;
 }
 
+bool Ini::ChangedOnDisk() const {
+    std::error_code ec;
+    const auto now = fs::last_write_time(Path(), ec);
+    return !ec && now != stamp;
+}
+
 void Ini::Load() {
     values = Defaults();
     lines.clear();
+    std::error_code ec;
+    stamp = fs::last_write_time(Path(), ec);
     if (auto text = ReadText(Path())) {
         lines = Split(*text, '\n');
         for (auto& l : lines)
@@ -239,9 +248,21 @@ void Ini::Load() {
         if (eq == std::string::npos || StartsWith(Trim(line), "#")) continue;
         values[Trim(line.substr(0, eq))] = Trim(line.substr(eq + 1));
     }
+    loaded = values;
 }
 
 void Ini::Save() {
+    // The launcher's own changes over the file as it is now (the in-game menu may have written
+    // other keys meanwhile, e.g. mouse_sensitivity).
+    if (ChangedOnDisk()) {
+        std::map<std::string, std::string> mine;
+        for (const auto& [key, value] : values) {
+            auto it = loaded.find(key);
+            if (it == loaded.end() || it->second != value) mine[key] = value;
+        }
+        Load();
+        for (auto& [key, value] : mine) values[key] = value;
+    }
     std::vector<std::string> out;
     std::map<std::string, bool> written;
     for (const std::string& line : lines) {

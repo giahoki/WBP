@@ -51,7 +51,8 @@ std::mutex imgui_mutex; // the ImGui context: window thread (input) and present 
 bool initialized = false;
 std::atomic<bool> menu_open{false};
 bool l3_down = false, r3_down = false;
-bool dirty = false; // settings changed while open: saved on close
+bool dirty = false; // settings changed: saved a second after the last change and on close
+std::chrono::steady_clock::time_point dirty_since{};
 // The game's text dialog (SetTextEntry), guarded by imgui_mutex.
 bool text_entry_active = false;
 std::string text_entry_prompt, text_entry_text;
@@ -129,6 +130,7 @@ void Store(std::atomic<T>& target, T value, bool changed) {
     if (changed) {
         target = value;
         dirty = true;
+        dirty_since = std::chrono::steady_clock::now();
     }
 }
 
@@ -359,6 +361,7 @@ void Menu() {
         ImGui::EndCombo();
     }
     Checkbox("Низкое разрешение теней (1024, быстрее)", s.low_shadows);
+    Checkbox("Без тумана (эксперимент, сразу)", s.no_fog);
     Checkbox("Генерация кадров FSR 3 (сразу, x2 FPS на экране)", s.frame_generation);
     {
         static const char* modes[] = {"60 / 90 FPS", "Половина частоты монитора"};
@@ -716,6 +719,12 @@ void Render(vk::CommandBuffer cmdbuf, vk::ImageView view, vk::Extent2D extent) {
         base_scale = scale;
     }
 
+    // Written soon after a change, not only when the menu closes: quitting the game with the
+    // menu open lost the change (e.g. the mouse sensitivity).
+    if (dirty && now - dirty_since > std::chrono::seconds(1)) {
+        dirty = false;
+        BbSettings::Save();
+    }
     ImGui_ImplVulkan_NewFrame();
     ImGui::NewFrame();
     if (menu_open) {

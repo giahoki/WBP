@@ -245,13 +245,15 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
         const auto new_image_id = slot_images.insert(instance, runtime, slot_image_views, new_info);
         RegisterImage(new_image_id);
 
+        // wbp: the insert can grow slot_images and move every image: cache_image is taken again.
+        auto& old_image = slot_images[cache_image_id];
         // Inherit image usage
         auto& new_image = slot_images[new_image_id];
-        new_image.usage = cache_image.usage;
+        new_image.usage = old_image.usage;
         new_image.flags &= ~ImageFlagBits::Dirty;
         // When creating a depth buffer through overlap resolution don't clear it on first use.
         new_image.info.meta_info.htile_clear_mask = 0;
-        runtime.CopyColorAndDepth(&cache_image, &new_image);
+        runtime.CopyColorAndDepth(&old_image, &new_image);
 
         // Free the cache image.
         FreeImage(cache_image_id);
@@ -767,12 +769,15 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
             stencil_id = slot_images.insert(instance, runtime, slot_image_views, info);
             RegisterImage(stencil_id);
         }
+        // wbp: the insert above can grow slot_images and move every image: `image` then
+        // pointed at freed memory (a read fault here with ~4000 images on a 4 GB card).
+        Image& depth_image = slot_images[image_id];
         Image& stencil_image = slot_images[stencil_id];
         TouchImage(stencil_image);
-        stencil_image.AssociateDepth(image_id, image.image_uid);
+        stencil_image.AssociateDepth(image_id, depth_image.image_uid);
     }
 
-    return image.FindView(desc.view_info, false);
+    return slot_images[image_id].FindView(desc.view_info, false);
 }
 
 void TextureCache::RefreshImage(Image& image) {
@@ -1059,6 +1064,7 @@ void TextureCache::GarbageCollectImages() {
     bool aggresive = false;
     u64 ticks_to_destroy = 0;
     size_t num_deletions = 0;
+    size_t scan_budget = 0;
 
     const auto configure = [&](bool allow_aggressive) {
         pressured = total_used_memory >= pressure_gc_memory;
@@ -1066,12 +1072,17 @@ void TextureCache::GarbageCollectImages() {
         ticks_to_destroy = aggresive ? 160 : pressured ? 80 : 16;
         ticks_to_destroy = std::min(ticks_to_destroy, gc_tick);
         num_deletions = aggresive ? 40 : pressured ? 20 : 10;
+        scan_budget = 512;
     };
+    // wbp: images that cannot go (tiled GPU-written ones: old areas' render targets) stay at
+    // the old end of the list for good. They used to count against num_deletions, so the
+    // first 40 of them used up every pass: "0 images evicted" while a 4 GB card ran out of
+    // memory. Skips now cost only a scan step (bounded per pass), evictions the budget.
     const auto clean_up = [&](ImageId image_id) {
-        if (num_deletions == 0) {
+        if (num_deletions == 0 || scan_budget == 0) {
             return true;
         }
-        --num_deletions;
+        --scan_budget;
         auto& image = slot_images[image_id];
         const bool download = image.SafeToDownload();
         const bool tiled = image.info.IsTiled();
@@ -1082,6 +1093,7 @@ void TextureCache::GarbageCollectImages() {
         if (download && !pressured) {
             return false;
         }
+        --num_deletions;
         if (download) {
             // wbp: synchronously, while the image still protects its pages. A deferred
             // write-back landed after FreeImage had unprotected them, over whatever the game

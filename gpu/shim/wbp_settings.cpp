@@ -71,6 +71,8 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         v.model_lod = std::clamp(i, -2, 2);
     } else if (key == "shadow_quality") {
         v.low_shadows = value == "low";
+    } else if (key == "no_fog") {
+        v.no_fog = i != 0;
     } else if (key == "live_resolution") {
         v.live_resolution = value == "auto" ? -1 : std::clamp(i, 0, 1);
     } else if (key == "output_res") {
@@ -236,6 +238,7 @@ void Save() {
         std::fprintf(file, "%s=%d\n", Effects[e].key, int(v.effects[e].load()));
     }
     std::fprintf(file, "frame_generation_mode=%s\n", v.frame_generation_half ? "half" : "fixed");
+    std::fprintf(file, "no_fog=%d\n", int(v.no_fog.load()));
     std::fprintf(file, "model_lod=%d\nshadow_quality=%s\noutput_res=%dx%d\n", v.model_lod.load(),
                  v.low_shadows ? "low" : "high", OutputWidths[v.output_res],
                  OutputHeights[v.output_res]);

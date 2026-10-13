@@ -182,8 +182,14 @@ private:
     bool bda_sparse{false};
     u64 bda_page_size{0};
     u32 bda_memory_type{0};
+    u32 bda_memory_type_bits{0};
+    u32 arena_memory_type_bits{0};
     std::vector<bool> bda_page_bound;
     void EnsureBdaTablePages(u64 first_block, u64 end_block);
+    // wbp: memory for sparse binds: video memory, or system memory once the driver reports
+    // video memory full (a 4 GB card: the game ended with ErrorOutOfDeviceMemory).
+    vk::DeviceMemory AllocateSparseMemory(u64 size, u32 memory_type_bits, u32 device_type);
+    std::atomic<u64> system_bytes{0};
 
     std::array<const Buffer*, MAX_ARENA_PAGES> address_space{};
     u64 arena_page_bits{MAX_ARENA_PAGE_BITS};

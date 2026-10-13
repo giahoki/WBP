@@ -626,6 +626,7 @@ int main(int argc, char **argv) {
     }
     if (patch_file) apply_patches(patch_file, segments, ns, relocs, nr);
     if (!cpu_only) runtime_mouse_install(image);
+    if (!cpu_only) runtime_fog_install(image);
     if (!cpu_only) runtime_input_install(image);
     if (!cpu_only) bbgpu_game_menu_install(image, size);
 #ifdef _WIN32

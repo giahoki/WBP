@@ -26,4 +26,7 @@ fi
 "$cmake" --build out/dlss-bridge --config Release
 cp out/dlss-bridge/Release/wbp_dlss.dll "$sdk/lib/Windows_x86_64/rel/nvngx_dlss.dll" out/
 cp "$sdk/LICENSE.txt" out/NVIDIA-DLSS-LICENSE.txt
-echo "DLSS bridge ready: out/wbp_dlss.dll, out/nvngx_dlss.dll"
+# The prebuilt copy builds and packages use (part of the repository).
+mkdir -p third_party/dlss
+cp out/wbp_dlss.dll out/nvngx_dlss.dll out/NVIDIA-DLSS-LICENSE.txt third_party/dlss/
+echo "DLSS bridge ready: out/ and third_party/dlss/ (wbp_dlss.dll, nvngx_dlss.dll)"

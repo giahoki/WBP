@@ -644,6 +644,11 @@ void Launcher::Frame() {
         while (log_.size() > MAX_LOG) log_.pop_front();
     }
     if (dirty_ && !ui_.in.down[0] && ui_.in.time - dirty_since_ > 0.25) Save();
+    // The in-game menu saved wbp.ini: show its values (twice a second; nothing pending here).
+    if (!dirty_ && ui_.in.time - ini_checked_ > 0.5) {
+        ini_checked_ = ui_.in.time;
+        if (ini_.ChangedOnDisk()) ini_.Load();
+    }
     if (ui_.in.x >= 0) {  // outside the window the art keeps its place
         mouse_sx_ += (ui_.in.x / std::max(1.f, ui_.g.Width()) - mouse_sx_) * 0.03f;
         mouse_sy_ += (1 - ui_.in.y / std::max(1.f, ui_.g.Height()) - mouse_sy_) * 0.03f;
@@ -1235,6 +1240,9 @@ float Launcher::GraphicsPage(float x, float y, float w) {
                 "shadow edges get softer. A game patch (1.09).",
                 "Карты теней от солнца. «Низкое» рисует в 4 раза меньше пикселей теней: помогает слабым видеокартам "
                 "(GTX 1650 и подобным), края теней мягче. Патч игры (1.09)."));
+    IniFlag(f, "no_fog", T("No fog (experimental)", "Без тумана (эксперимент)"),
+            T("Sets the game's fog to fully transparent while playing; the in-game menu (Insert) switches it at once.",
+              "Делает туман игры полностью прозрачным; в игре переключается сразу через меню (Insert)."));
     IniFlag(f, "show_fps", T("Show the FPS counter", "Показывать FPS"));
     return f.y;
 }

@@ -354,6 +354,11 @@
             <Line Type="bytes32" Address="0x01BF9439" Value="0x461C3C00"/>
         </PatchList>
     </Metadata>
+    <Metadata Title="Bloodborne" Name="Disable Wind (cloth, hair)" Note="Wind zones the map events switch on are not created (WindWorld, 0x2112490 returns at once): coats, capes and hair stop flapping in the wind; they still move with the character. Experimental." Author="WBP" PatchVer="1.0" AppVer="01.09" AppElf="eboot.bin" isEnabled="false">
+        <PatchList>
+            <Line Type="bytes" Address="0x02112490" Value="C3"/>
+        </PatchList>
+    </Metadata>
     <Metadata Title="Bloodborne" Name="Lower object/corpse physics" Note="Corpses resist movement by the player or other actions." Author="Kyo" PatchVer="1.0" AppVer="01.09" AppElf="eboot.bin" isEnabled="true">
         <PatchList>
             <Line Type="bytes32" Address="0x01BF9463" Value="0x01010101"/>

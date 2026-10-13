@@ -10,7 +10,7 @@
 
 #include "util.h"
 
-constexpr const char* VERSION = "1.6";  // GitHub release tag: the same digits (1.6 or v1.6)
+constexpr const char* VERSION = "1.7";  // GitHub release tag: the same digits (1.7 or v1.7)
 constexpr const char* PATCH_VERSION = "01.09";
 constexpr const char* COMMUNITY_SERVER = "https://thehuntersdream.com";
 constexpr const char* RELEASES_API = "https://api.github.com/repos/giahoki/WBP/releases/latest";
@@ -56,9 +56,15 @@ std::map<std::string, std::vector<std::string>> LoadBindings(const std::map<std:
 
 // wbp.ini: values over the defaults; saving rewrites the known keys in place and keeps
 // comments and unknown keys.
+// The game's in-game menu writes the same file while the launcher is open: Save() writes only
+// the keys the launcher changed since it read the file over what is on disk now, and
+// ChangedOnDisk() tells the launcher to read it again.
 struct Ini {
     std::map<std::string, std::string> values;
     std::vector<std::string> lines;
+    std::map<std::string, std::string> loaded;  // values as read or written last
+    fs::file_time_type stamp{};
+    bool ChangedOnDisk() const;
     static fs::path Path();
     static const std::map<std::string, std::string>& Defaults();
     static bool IsFlag(const std::string& key);

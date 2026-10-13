@@ -91,7 +91,7 @@ static SDL_Gamepad *current_gamepad(void) {
  * (Shift+Mouse1 strong attack, Mouse1 attack). Mouse inputs count only while the cursor is
  * captured (runtime_mouse.c). The file is re-read when it changes, also during play. Keys held
  * for movement override the stick; diagonals stay on the stick's circle. Reserved by the port:
- * Insert (menu), F9 (pad recording), F10 (mouse camera), left Alt (free the cursor).
+ * Insert (menu), F9 (pad recording), F10 (mouse camera), F11 (fullscreen), left Alt (free the cursor).
  * quick_save is not a pad input: a press copies the save folder. */
 enum { IN_KEY, IN_MOUSE, IN_WHEEL };
 enum { MOD_SHIFT=1, MOD_CTRL=2, MOD_ALT=4 };
@@ -390,6 +390,7 @@ static void sample_host(PadData *d) {
     d->connected=1; d->connected_count=connected_count ? connected_count : 1;
     d->timestamp=now_us();
     SDL_Gamepad *g=current_gamepad();
+    runtime_fog_tick();
     if (bbgpu_overlay_captures_input()) return; /* settings menu open: neutral input */
     const bool *k=SDL_WasInit(SDL_INIT_VIDEO) ? SDL_GetKeyboardState(NULL) : NULL;
     if (g) {

@@ -88,6 +88,7 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
     block_shift = std::bit_width(block_size) - 1;
     blocks_per_arena_page = arena_page_size / block_size;
     blocks_per_arena_page_shift = arena_page_bits - block_shift;
+    arena_memory_type_bits = reqs.memoryTypeBits;
     arena_memory_type_index =
         FindMemoryType(instance.GetMemoryProperties(), vk::MemoryPropertyFlagBits::eDeviceLocal,
                        reqs.memoryTypeBits)
@@ -105,6 +106,7 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
                                                         MemoryType::Sparse, "BDA Page Table Buffer");
         const auto table_reqs = device.getBufferMemoryRequirements(bda_pagetable_buffer->Handle());
         bda_page_size = std::max<u64>(table_reqs.alignment, 64_KB);
+        bda_memory_type_bits = table_reqs.memoryTypeBits;
         bda_memory_type = FindMemoryType(instance.GetMemoryProperties(),
                                          vk::MemoryPropertyFlagBits::eDeviceLocal,
                                          table_reqs.memoryTypeBits)
@@ -123,6 +125,43 @@ BufferCache::BufferCache(const Vulkan::Instance& instance_, Vulkan::Scheduler& s
                 (unsigned long long)((blocks_per_arena_page * num_arena_pages / 8) >> 20));
 }
 
+vk::DeviceMemory BufferCache::AllocateSparseMemory(u64 size, u32 memory_type_bits,
+                                                   u32 device_type) {
+    const auto device = instance.GetDevice();
+    vk::MemoryAllocateInfo alloc_info = {
+        .allocationSize = size,
+        .memoryTypeIndex = device_type,
+    };
+    auto result = device.allocateMemory(alloc_info);
+    if (result.result == vk::Result::eSuccess) {
+        return result.value;
+    }
+    ASSERT_MSG(result.result == vk::Result::eErrorOutOfDeviceMemory,
+               "Failed to allocate buffer memory: {}", vk::to_string(result.result));
+    // A type the buffer accepts outside video memory (slower for the GPU, but the game goes on).
+    const auto& props = instance.GetMemoryProperties();
+    for (u32 type = 0; type < props.memoryTypeCount; ++type) {
+        const auto flags = props.memoryTypes[type].propertyFlags;
+        if (!(memory_type_bits & (1u << type)) || (flags & vk::MemoryPropertyFlagBits::eDeviceLocal)) {
+            continue;
+        }
+        alloc_info.memoryTypeIndex = type;
+        result = device.allocateMemory(alloc_info);
+        if (result.result == vk::Result::eSuccess) {
+            if (system_bytes.fetch_add(size, std::memory_order_relaxed) == 0) {
+                std::printf("Buffer cache: video memory is full; new guest buffers go to system "
+                            "memory (slower; lower the graphics settings)\n");
+            }
+            return result.value;
+        }
+    }
+    ASSERT_MSG(false,
+               "Out of video and system memory for buffers ({} MiB requested). Lower the output "
+               "resolution or the graphics preset.",
+               size >> 20);
+    return {};
+}
+
 void BufferCache::EnsureBdaTablePages(u64 first_block, u64 end_block) {
     if (!bda_sparse || first_block >= end_block) {
         return;
@@ -134,11 +173,7 @@ void BufferCache::EnsureBdaTablePages(u64 first_block, u64 end_block) {
         if (bda_page_bound[page]) {
             continue;
         }
-        const vk::MemoryAllocateInfo alloc_info = {
-            .allocationSize = bda_page_size,
-            .memoryTypeIndex = bda_memory_type,
-        };
-        const auto memory = Vulkan::Check(instance.GetDevice().allocateMemory(alloc_info));
+        const auto memory = AllocateSparseMemory(bda_page_size, bda_memory_type_bits, bda_memory_type);
         // Bound before the submission that records the fill and the entries (as arena memory).
         BindsForArena(bda_pagetable_buffer.get())
             ->binds.push_back(vk::SparseMemoryBind{
@@ -521,12 +556,10 @@ void BufferCache::EnsureResident(const Buffer* arena, u64 first_block, u64 last_
     }
     BbStats::Timer timer{BbStats::t_resident};
 
-    const vk::MemoryAllocateInfo alloc_info = {
-        .allocationSize = resident_blocks << block_shift,
-        .memoryTypeIndex = arena_memory_type_index,
-    };
-    const auto device_memory = Vulkan::Check(instance.GetDevice().allocateMemory(alloc_info));
-    resident_bytes.fetch_add(alloc_info.allocationSize, std::memory_order_relaxed);
+    const u64 allocation_size = resident_blocks << block_shift;
+    const auto device_memory =
+        AllocateSparseMemory(allocation_size, arena_memory_type_bits, arena_memory_type_index);
+    resident_bytes.fetch_add(allocation_size, std::memory_order_relaxed);
 
     boost::container::small_vector<vk::BufferCopy, 8> copies;
     const auto staging =

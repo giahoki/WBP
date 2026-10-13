@@ -110,6 +110,7 @@ private:
     double page_since_ = 0;
     bool dirty_ = false;
     double dirty_since_ = 0;
+    double ini_checked_ = 0;
     double close_at_ = 0;
     std::vector<Toast> toasts_;
     std::vector<Ash> ash_;
