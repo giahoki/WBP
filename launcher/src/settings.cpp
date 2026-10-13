@@ -17,6 +17,7 @@ const std::vector<Flag> EFFECTS = {
     {"effect_game_aa", {"The game's own anti-aliasing", "Собственное сглаживание игры"}, true},
     {"effect_dynamic_shadows", {"Shadows of dynamic lights", "Тени от динамических источников"}, true},
     {"effect_ssr", {"Screen-space reflections (not in the original)", "Отражения SSR (не было в игре)"}, false},
+    {"effect_no_wind", {"No wind on clothes and hair (experimental)", "Без ветра на одежде и волосах (экспериментально)"}, false},
 };
 const std::vector<Flag> EXTRAS = {
     {"skip_intro", {"Skip the intro logos and movie", "Пропуск заставок при запуске"}, false},
@@ -40,7 +41,6 @@ const std::vector<Flag> TWEAKS = {
     {"tweak_no_camera_rotation", {"No camera auto-rotation while moving", "Без автоповорота камеры при движении"}, false},
     {"tweak_easy_run", {"Run with less stick tilt (about 70%)", "Бег при меньшем наклоне стика (около 70%)"}, false},
     {"tweak_ragdoll", {"Dark Souls-style ragdoll physics (corpses fly further)", "Физика тел как в Dark Souls (тела отлетают дальше)"}, false},
-    {"tweak_no_wind", {"No wind on clothes and hair (experimental)", "Без ветра на одежде и волосах (экспериментально)"}, false},
 };
 
 const std::vector<Choice> UPSCALERS = {{"auto", {"Auto (DLSS on GeForce RTX when installed, otherwise FSR 3.1)", "Авто (DLSS на GeForce RTX, если установлен, иначе FSR 3.1)"}},

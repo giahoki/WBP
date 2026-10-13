@@ -33,6 +33,7 @@ inline constexpr Effect Effects[] = {
     {"effect_game_aa", "Собственное сглаживание игры", true},
     {"effect_dynamic_shadows", "Тени от динамических источников", true},
     {"effect_ssr", "Отражения SSR (не было в игре)", false},
+    {"effect_no_wind", "Без ветра на одежде и волосах", false},
     {"skip_intro", "Пропуск заставок при запуске", false},
     {"debug_camera", "Свободная камера (Взаимодействие + L3: E + F)", false},
     {"debug_menu", "Debug menu (нужны файлы шрифтов)", false},
@@ -46,7 +47,6 @@ inline constexpr Effect Effects[] = {
     {"tweak_no_camera_rotation", "Без автоповорота камеры", false},
     {"tweak_easy_run", "Бег с меньшим наклоном стика", false},
     {"tweak_ragdoll", "Физика тел как в Dark Souls", false},
-    {"tweak_no_wind", "Без ветра на одежде и волосах", false},
 };
 inline constexpr int EffectCount = int(sizeof(Effects) / sizeof(Effects[0]));
 /// Live output resolutions: the upscaler's output and the UI host targets.

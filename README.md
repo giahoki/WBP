@@ -11,7 +11,7 @@
 
 **English** · [Русский](README.ru.md)
 
-[Download](#-download) · [Features](#-features) · [How to play](#-how-to-play) · [Online](#-online-play-beta) · [Controls](#-controls) · [Performance](#-if-the-game-runs-slowly) · [Building](#-building)
+[Features](#-features) · [How to play](#-how-to-play) · [Online](#-online-play-beta) · [Controls](#-controls) · [Performance](#-if-the-game-runs-slowly) · [Building](#-building)
 
 </div>
 
@@ -25,12 +25,6 @@ side. Only the graphics are translated, from the PS4's GPU commands to Vulkan. U
 > **No game files are included.** You need your own decrypted dump of Bloodborne (CUSA03173),
 > version **1.09** for the frame rate, resolution and effect patches (other versions run at 30 FPS).
 > This project is not affiliated with Sony Interactive Entertainment or FromSoftware.
-
-## 📦 Download
-
-Get the ready-to-play build from **[the releases of giahoki/WBP](https://github.com/giahoki/WBP/releases/latest)**:
-download the zip, unpack it anywhere, done. Nothing else to install. The launcher tells you when
-a new version is out and installs it in one click; your saves, settings and mods are kept.
 
 ## ✨ Features
 

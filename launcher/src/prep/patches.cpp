@@ -38,6 +38,7 @@ const Effect EFFECTS[] = {
     {"effect_game_aa", "Disable AA", nullptr},
     {"effect_dynamic_shadows", "Disable Dynamic Light Shadows (perf increase)", nullptr},
     {"effect_ssr", nullptr, "Enable Screen Space Reflections (READ NOTE)"},
+    {"effect_no_wind", nullptr, "Disable Wind (cloth, hair)"},
     {"skip_intro", nullptr, "Skip Intro"},
     {"debug_camera", nullptr, "Restore Debug Camera"},
     {"debug_menu", nullptr, "Restore Debug Menu (READ NOTES)"},
@@ -51,7 +52,6 @@ const Effect EFFECTS[] = {
     {"tweak_no_camera_rotation", nullptr, "Disable Camera Auto Rotation via Movement"},
     {"tweak_easy_run", nullptr, "Sensitive Analog Input (easier to run)"},
     {"tweak_ragdoll", nullptr, "DS1-like physics"},
-    {"tweak_no_wind", nullptr, "Disable Wind (cloth, hair)"},
 };
 const std::map<std::string, std::string> MODEL_LOD = {
     {"-2", "Model LOD -2 (Highest)"}, {"1", "Model LOD 1 (Lower)"}, {"2", "Model LOD 2 (Lowest)"}};

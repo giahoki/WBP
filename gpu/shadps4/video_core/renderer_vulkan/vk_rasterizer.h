@@ -501,6 +501,9 @@ private:
         u64 position;
     };
     std::vector<PendingWrite> pending_writes;
+    static constexpr u64 PendingUnassigned = ~u64{0}; ///< never Reached until PostDraw commits
+    bool building_packet = false;
+    bool unassigned_writes = false;
     VAddr pending_min = ~VAddr{0}, pending_max = 0; ///< bounds of pending_writes
     u32 pending_checks = 0;
     u64 proxy_samples = 0; ///< texture bindings that read a scene proxy (statistics)

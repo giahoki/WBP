@@ -285,6 +285,13 @@ public:
     /// Runs the garbage collector.
     void RunGarbageCollector();
 
+    /// wbp: video memory as of the last collector pass: 0 fine, 1 under pressure, 2 critical.
+    [[nodiscard]] int MemoryPressure() const noexcept {
+        return total_used_memory >= critical_gc_memory   ? 2
+               : total_used_memory >= pressure_gc_memory ? 1
+                                                         : 0;
+    }
+
     template <typename Func>
     void ForEachImageInRegion(VAddr cpu_addr, size_t size, Func&& func) {
         using FuncReturn = typename std::invoke_result<Func, ImageId, Image&>::type;

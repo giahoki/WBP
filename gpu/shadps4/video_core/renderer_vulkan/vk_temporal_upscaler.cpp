@@ -1813,7 +1813,7 @@ void TemporalUpscaler::RunScaled() {
                 // inputs: only dump it when it matches, to avoid an out-of-bounds GPU copy.
                 if (const auto object = camera_motion.ObjectMotionImage(w, h); object) {
                     DumpImages(instance, scheduler, cmdbuf, dump,
-                               {{object, w, h, 16, "objects", "rgba32f"}});
+                               {{object, w, h, 8, "objects", "rgba16f"}});
                 }
             }
         }

@@ -120,16 +120,11 @@ static void EmitVertexMotion(EmitContext& ctx) {
     ctx.AddLabel(store_label);
     const Id store_address = address(MotionVectors::positions_address,
                                      ctx.OpIAdd(u32_type, store_base, slot), 16);
-    // Indexed draws may invoke the same vertex more than once. Atomic component stores
-    // avoid write/write races; all these invocations produce the same clip position.
-    const Id scalar_ptr = ctx.TypePointer(spv::StorageClass::PhysicalStorageBuffer, u32_type);
-    const Id scope = ctx.ConstU32(static_cast<u32>(spv::Scope::Device));
-    for (u32 i = 0; i < 4; ++i) {
-        const Id ptr = ctx.OpConvertUToPtr(scalar_ptr,
-            ctx.OpIAdd(ctx.U64, store_address, ctx.Constant(ctx.U64, u64(i * 4))));
-        const Id bits = ctx.OpBitcast(u32_type, ctx.OpCompositeExtract(ctx.F32[1], position, i));
-        ctx.OpAtomicExchange(u32_type, ptr, scope, ctx.u32_zero_value, bits);
-    }
+    // Indexed draws may invoke the same vertex more than once; all these invocations write
+    // the same clip position, so one aligned 16-byte store each is enough. wbp: four atomic
+    // exchanges per vertex before (L2 atomics on every G-buffer vertex).
+    ctx.OpStore(ctx.OpConvertUToPtr(f32x4_ptr, store_address), position,
+                spv::MemoryAccessMask::Aligned, 16u);
     ctx.OpBranch(store_merge);
     ctx.AddLabel(store_merge);
 
@@ -177,9 +172,12 @@ static void EmitFragmentMotion(EmitContext& ctx) {
     const Id valid = ctx.OpSelect(f32_type, front,
                                   ctx.OpCompositeExtract(f32_type, previous, 2u), zero);
     // Uninstrumented draws can overwrite the final scene depth after this pixel was
-    // written. Preserve depth so the compose pass can reject an occluded vector.
-    const Id depth = ctx.OpCompositeExtract(f32_type,
-                                            ctx.OpLoad(ctx.F32[4], ctx.frag_coord), 2u);
+    // written. Preserve depth so the compose pass can reject an occluded vector. wbp: stored
+    // as 1 - depth in a half float: precise where perspective depth crowds towards 1.
+    const Id depth = ctx.OpFSub(f32_type, ctx.Constant(f32_type, 1.0f),
+                                ctx.OpCompositeExtract(f32_type,
+                                                       ctx.OpLoad(ctx.F32[4], ctx.frag_coord),
+                                                       2u));
     ctx.OpStore(ctx.motion_frag_out,
                 ctx.OpCompositeConstruct(ctx.F32[4], std::array<Id, 4>{
                     ctx.OpSelect(f32_type, front, dx, zero),

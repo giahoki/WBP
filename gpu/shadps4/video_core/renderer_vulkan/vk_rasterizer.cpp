@@ -447,19 +447,26 @@ void Rasterizer::NotePendingGpuWrite(VAddr address, u64 size) {
         return;
     }
     // Draws write the same buffers over and over: an entry for the range only moves on.
-    const u64 position = draw_pipe->Head();
+    // wbp: while PostDraw builds a packet its writes are not in the ring yet: the entry gets
+    // the packet's end once committed (PendingUnassigned until then). With the head from
+    // before the packet, stage A took the write as done one packet early and captured the
+    // old bytes into the constant ring (copy shader results done by the CPU: bones of the
+    // previous frame, stretched triangles).
+    const u64 position = building_packet ? PendingUnassigned : draw_pipe->Head();
     const VAddr end = address + size;
     for (auto& write : pending_writes) {
         if (address <= write.end && write.begin <= end) {
             write.begin = std::min(write.begin, address);
             write.end = std::max(write.end, end);
             write.position = position;
+            unassigned_writes |= position == PendingUnassigned;
             pending_min = std::min(pending_min, address);
             pending_max = std::max(pending_max, end);
             return;
         }
     }
     pending_writes.push_back({address, end, position});
+    unassigned_writes |= position == PendingUnassigned;
     pending_min = std::min(pending_min, address);
     pending_max = std::max(pending_max, end);
 }
@@ -582,6 +589,7 @@ void Rasterizer::PostDraw(const Pipeline* pipeline, const PreparedDraw* used_pre
                             Shader::MaxStageTypes>
         rings;
     u32 num_stages = 0;
+    building_packet = true;
     u32 size = sizeof(DrawPacket) + AlignPacket(num_blocks * sizeof(u16)) +
                num_blocks * AmdGpu::RegDirty::BlockWords * sizeof(u32);
     for (const auto* stage : stages) {
@@ -673,6 +681,16 @@ void Rasterizer::PostDraw(const Pipeline* pipeline, const PreparedDraw* used_pre
     }
     dirty.Clear();
     draw_pipe->Commit(static_cast<u32>(out - start));
+    building_packet = false;
+    if (unassigned_writes) {
+        unassigned_writes = false;
+        const u64 head = draw_pipe->Head();
+        for (auto& write : pending_writes) {
+            if (write.position == PendingUnassigned) {
+                write.position = head;
+            }
+        }
+    }
     PrintPipeStats();
 }
 
@@ -1419,6 +1437,7 @@ void Rasterizer::OnSubmit() {
     }
     texture_cache.ProcessDownloadImages();
     texture_cache.RunGarbageCollector();
+    buffer_cache.CollectGarbage();
     runtime.TickFrame();
 }
 

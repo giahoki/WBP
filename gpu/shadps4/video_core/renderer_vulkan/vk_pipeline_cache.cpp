@@ -942,7 +942,9 @@ bool PipelineCache::RefreshGraphicsKey(PipelineSelection& sel) {
         key.mrt_mask |= 1u << mv;
         key.num_color_attachments = mv + 1;
         auto& color_buffer = key.color_buffers[mv];
-        color_buffer.data_format = AmdGpu::DataFormat::Format32_32_32_32;
+        // wbp: RGBA16F (8 bytes a pixel, half of the G-buffer pass's extra traffic):
+        // pixels of motion, valid, 1 - depth (vk_object_motion.cpp).
+        color_buffer.data_format = AmdGpu::DataFormat::Format16_16_16_16;
         color_buffer.num_format = AmdGpu::NumberFormat::Float;
         color_buffer.swizzle = AmdGpu::IdentityMapping;
         key.write_masks[mv] = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |

@@ -38,7 +38,8 @@ Clock::time_point phase_start, last_flip;
 std::uint64_t last_draws = 0, measure_draws = 0, measure_tick_wait = 0;
 std::uint64_t measure_dispatches = 0, measure_asc = 0, measure_presents = 0;
 std::uint64_t measure_passes = 0, measure_batches = 0, measure_memory = 0, measure_images = 0,
-              measure_merged = 0;
+              measure_merged = 0, measure_hle_cpu = 0, measure_hle_gpu = 0, measure_hle_bytes = 0,
+              measure_layout_only = 0;
 std::uint32_t scene_flips = 0;
 std::vector<double> intervals;
 std::vector<double> present_intervals; ///< present thread only, read after the run
@@ -88,6 +89,13 @@ void Finish() {
                     double(BbStats::memory_barriers.load() - measure_memory) / n,
                     double(BbStats::image_barriers.load() - measure_images) / n,
                     double(BbStats::image_barriers_merged.load() - measure_merged) / n);
+        std::printf("Bench:   per frame: %.1f barrier batches only change layouts between reads\n",
+                    double(BbStats::layout_only_batches.load() - measure_layout_only) / n);
+        std::printf("Bench:   per frame: copy shader batches %.1f on the CPU (%.0f KiB), %.1f on "
+                    "the GPU\n",
+                    double(BbStats::hle_cpu_batches.load() - measure_hle_cpu) / n,
+                    double(BbStats::hle_cpu_bytes.load() - measure_hle_bytes) / n / 1024.0,
+                    double(BbStats::hle_gpu_batches.load() - measure_hle_gpu) / n);
     }
     // Where the GPU command thread (and others) waited for the GPU, most first.
     std::vector<const BbStats::TickWaitSite*> sites;
@@ -186,6 +194,10 @@ void OnFlip() {
             measure_memory = BbStats::memory_barriers.load();
             measure_images = BbStats::image_barriers.load();
             measure_merged = BbStats::image_barriers_merged.load();
+            measure_hle_cpu = BbStats::hle_cpu_batches.load();
+            measure_hle_gpu = BbStats::hle_gpu_batches.load();
+            measure_hle_bytes = BbStats::hle_cpu_bytes.load();
+            measure_layout_only = BbStats::layout_only_batches.load();
             for (auto& reason : BbStats::barrier_reasons) {
                 reason = 0;
             }

@@ -1266,12 +1266,27 @@ float Launcher::DisplayPage(float x, float y, float w) {
               T("1 keeps frame pacing even; more can raise FPS when the graphics card is the limit.",
                 "1 — ровная подача кадров; больше может поднять FPS, если упирается в видеокарту."));
     f.Section(T("Window", "Окно"));
-    AppFlag(f, "fullscreen", T("Fullscreen", "Полноэкранный режим"));
+    AppFlag(f, "fullscreen", T("Fullscreen", "Полноэкранный режим"),
+            T("A borderless window over the whole monitor: Alt+Tab is instant and the game stays visible. "
+              "F11 switches in the game.",
+              "Окно без рамок на весь монитор: Alt+Tab мгновенный, игра остаётся на экране. "
+              "F11 переключает прямо в игре."));
     AppChoice(f, "display", T("Monitor", "Монитор"), DISPLAYS,
               T("The monitor the game window (and fullscreen) opens on; numbered as Windows lists them, the list is in "
                 "the log.",
                 "Монитор, на котором открывается окно игры (и полный экран); номера — в порядке Windows, список в журнале."));
-    AppChoice(f, "present_mode", T("Presentation", "Режим показа кадров"), PRESENT_MODES);
+    AppChoice(f, "present_mode", T("Presentation", "Режим показа кадров"), PRESENT_MODES,
+              T("How finished frames reach the screen. Mailbox: the newest frame is shown at the next refresh, no "
+                "tearing and little delay (the default). FIFO: classic VSync, smooth but up to a frame more input "
+                "lag, FPS is held at the refresh rate. FIFO Relaxed: VSync, but a late frame is shown at once "
+                "(may tear when FPS drops below the refresh rate). Immediate: no waiting at all, lowest lag, "
+                "visible tearing. With frame generation Mailbox works as FIFO.",
+                "Как готовые кадры попадают на экран. Mailbox — показывается самый свежий кадр при следующем "
+                "обновлении монитора: без разрывов и почти без задержки (по умолчанию). FIFO — обычная "
+                "вертикальная синхронизация: плавно, но управление может запаздывать на кадр, FPS не выше "
+                "частоты монитора. FIFO Relaxed — то же, но опоздавший кадр показывается сразу (возможны "
+                "разрывы, когда FPS ниже частоты монитора). Immediate — без ожидания: минимальная задержка, "
+                "заметные разрывы изображения. С генерацией кадров Mailbox работает как FIFO."));
     AppFlag(f, "hdr", T("Allow HDR output", "Разрешить HDR"),
             T("When HDR is on in Windows and the display supports it.", "Если HDR включён в Windows и монитор его поддерживает."));
     return f.y;

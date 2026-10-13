@@ -69,6 +69,8 @@ enum : std::uint64_t {
     // when nothing moves. Static-camera flicker of railings/window bars p99.9 -45% (2026-10-03).
     TaaKeepNearerHistory = 1ull << 55,
     SceneMipBias = 1ull << 57, ///< negative LOD bias of G-buffer samplers at reduced scene sizes
+    BufferEviction = 1ull << 58, ///< arena blocks unused for seconds are released under memory pressure
+    HleCpuCopy = 1ull << 59, ///< copy shader HLE between CPU-side guest ranges done by the CPU
     // Bits 20-29 are used as raw debug toggles by the camera/object motion and the upscaler.
 };
 inline bool Disabled(std::uint64_t bit) {
@@ -141,6 +143,10 @@ inline std::atomic<std::uint64_t> render_passes{0}, barrier_batches{0}, memory_b
     image_barriers{0};
 /// Image accesses that skipped a barrier: a read after reads in the same layout.
 inline std::atomic<std::uint64_t> image_barriers_merged{0};
+/// Copy shader HLE batches done by the CPU / by the GPU, and the bytes the CPU copied.
+inline std::atomic<std::uint64_t> hle_cpu_batches{0}, hle_gpu_batches{0}, hle_cpu_bytes{0};
+/// Barrier batches with no write before them (layout changes between reads only).
+inline std::atomic<std::uint64_t> layout_only_batches{0};
 /// GPU tick waits per call site (Scheduler::Wait): file and line of the caller, wall time.
 struct TickWaitSite {
     std::atomic<const char*> file{nullptr};

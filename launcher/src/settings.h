@@ -10,7 +10,7 @@
 
 #include "util.h"
 
-constexpr const char* VERSION = "1.7";  // GitHub release tag: the same digits (1.7 or v1.7)
+constexpr const char* VERSION = "2.1";  // GitHub release tag: the same digits (2.1 or v2.1)
 constexpr const char* PATCH_VERSION = "01.09";
 constexpr const char* COMMUNITY_SERVER = "https://thehuntersdream.com";
 constexpr const char* RELEASES_API = "https://api.github.com/repos/giahoki/WBP/releases/latest";

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstring>
+
 #include "shader_recompiler/info.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_runtime.h"
@@ -8,6 +10,8 @@
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
+#include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/texture_cache/texture_cache.h"
 #include "video_core/host_shaders/buffer_multi_copy_comp.h"
 #include "wbp_toggles.h"
 #include "video_core/renderer_vulkan/vk_gpu_profiler.h"
@@ -135,6 +139,43 @@ static bool MultiCopy(Rasterizer& rasterizer, const VideoCore::Buffer* src,
     return true;
 }
 
+// wbp: a batch between guest ranges the GPU has not written (neither buffers nor images) is
+// copied here, on the draw recording thread in order with the draws. No dispatch, barrier or
+// 3D/compute switch; draws reading the destination then take it as CPU data (constant ring,
+// stream buffer) instead of a GPU-written buffer behind another barrier. Stage A noted the
+// destination as a pending GPU write, so it does not capture it before this point.
+static bool CpuCopy(Rasterizer& rasterizer, VAddr src_base, VAddr dst_base, u64 src_min,
+                    u64 src_max, u64 dst_min, u64 dst_max, std::span<const vk::BufferCopy> copies) {
+    if (BbToggle::Disabled(BbToggle::HleCpuCopy)) {
+        return false;
+    }
+    auto& buffer_cache = rasterizer.GetBufferCache();
+    auto& texture_cache = rasterizer.GetTextureCache();
+    const VAddr src = src_base + src_min;
+    const VAddr dst = dst_base + dst_min;
+    const u64 src_size = src_max - src_min;
+    const u64 dst_size = dst_max - dst_min;
+    if (buffer_cache.IsRegionGpuModified(src, src_size) ||
+        buffer_cache.IsRegionGpuModified(dst, dst_size) ||
+        texture_cache.FindImageFromRange(src, src_size) ||
+        texture_cache.FindImageFromRange(dst, dst_size)) {
+        return false;
+    }
+    // Uploads queued earlier may still be reading the old destination bytes.
+    rasterizer.GetRuntime().GetScheduler().WaitHostCopiesFor(dst, dst_size);
+    // As a guest write: GPU copies of the range become stale, its pages stop faulting.
+    rasterizer.InvalidateMemory(dst, dst_size);
+    u64 bytes = 0;
+    for (const auto& copy : copies) {
+        std::memmove(reinterpret_cast<void*>(dst_base + copy.dstOffset),
+                     reinterpret_cast<const void*>(src_base + copy.srcOffset), copy.size);
+        bytes += copy.size;
+    }
+    BbStats::hle_cpu_batches.fetch_add(1, std::memory_order_relaxed);
+    BbStats::hle_cpu_bytes.fetch_add(bytes, std::memory_order_relaxed);
+    return true;
+}
+
 static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::ComputeProgram& cs_program,
                                  Rasterizer& rasterizer) {
     auto& runtime = rasterizer.GetRuntime();
@@ -208,6 +249,14 @@ static bool ExecuteCopyShaderHLE(const Shader::Info& info, const AmdGpu::Compute
             dst_offset_min = new_dst_offset_min;
             dst_offset_max = new_dst_offset_max;
         }
+
+        const auto batch = std::span{copies}.subspan(batch_start, batch_end - batch_start);
+        if (CpuCopy(rasterizer, src_buf_sharp.base_address, dst_buf_sharp.base_address,
+                    src_offset_min, src_offset_max, dst_offset_min, dst_offset_max, batch)) {
+            batch_start = batch_end;
+            continue;
+        }
+        BbStats::hle_gpu_batches.fetch_add(1, std::memory_order_relaxed);
 
         // Obtain buffers for the total source and destination ranges.
         const auto [src_buf, src_buf_offset] = buffer_cache.ObtainBuffer(

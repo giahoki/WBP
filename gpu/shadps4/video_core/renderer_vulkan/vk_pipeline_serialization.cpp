@@ -13,9 +13,9 @@
 
 namespace Serialization {
 /* You should increment versions below once corresponding serialization scheme is changed. */
-static constexpr u32 ShaderBinaryVersion = 7u; // wbp: interpolated integer fix (Pascal)
+static constexpr u32 ShaderBinaryVersion = 9u; // wbp: RGBA16F object motion target
 static constexpr u32 ShaderMetaVersion = 7u; // wbp: ImageResource::needs_native
-static constexpr u32 PipelineKeyVersion = 5u; // wbp: Info layout (ImageResource::needs_native)
+static constexpr u32 PipelineKeyVersion = 6u; // wbp: RGBA16F object motion target
 } // namespace Serialization
 
 namespace Vulkan {

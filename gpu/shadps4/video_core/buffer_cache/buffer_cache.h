@@ -5,7 +5,9 @@
 
 #include "wbp_copy.h"
 
+#include <chrono>
 #include <deque>
+#include <unordered_map>
 #include <boost/container/small_vector.hpp>
 
 #include "common/interval_set.h"
@@ -112,11 +114,22 @@ public:
     /// Commits pending sparse buffer memory binds. Must be called before every scheduler submit.
     void SubmitPendingArenaBinds(Vulkan::SubmitInfo& info);
 
-    /// wbp: video memory of the guest memory made resident in the arenas (never released) and
-    /// of the fixed buffers (BDA page table, fault buffer), for the memory pressure report.
+    /// wbp: guest memory resident in the arenas, the video memory of the block pool behind it
+    /// and of the fixed buffers (BDA page table, fault buffer), for the memory pressure report.
     u64 ResidentBytes() const {
         return resident_bytes.load(std::memory_order_relaxed);
     }
+    u64 PoolBytes() const {
+        return pool_bytes.load(std::memory_order_relaxed);
+    }
+
+    /// wbp: releases arena blocks the GPU has not used for a while when the driver's video
+    /// memory budget is nearly used up. Draw recording thread or with the draw pipe drained.
+    void CollectGarbage();
+
+    /// wbp: blocks reached through the BDA page table only (fault buffer) are never evicted:
+    /// their uses are not seen by ObtainBuffer.
+    void PinResident(VAddr device_addr, u64 size);
     u64 FixedBytes() const {
         return fixed_bytes.load(std::memory_order_relaxed);
     }
@@ -138,6 +151,45 @@ private:
     const Buffer* GetArena(u64 first_block, u64 last_block);
 
     void EnsureResident(const Buffer* arena, u64 first_block, u64 last_block);
+
+    /// wbp: arena memory pool. Blocks get slots in chunks of video memory; evicted blocks give
+    /// their slots back and empty chunks are freed, so residency no longer only grows (a 4 GB
+    /// card ran out of memory with 1.5 GB of buffers, most of them from areas left long ago).
+    struct MemoryChunk {
+        vk::DeviceMemory memory;
+        std::vector<u64> free_bits; // 1 = free slot
+        u32 used = 0;
+    };
+    struct SlotRun {
+        vk::DeviceMemory memory;
+        u64 offset;
+        u32 count;
+    };
+    SlotRun AllocateSlots(u64 max_count);
+    void FreeSlots(vk::DeviceMemory memory, u64 offset, u64 count);
+    void TouchBlocks(u64 first_block, u64 last_block, u64 tick);
+    u64 EvictBlocks(u64 min_age_ticks, u64 max_bytes, bool write_back = false);
+    u64 AgeTicks(double seconds) const;
+    int MemoryPressure() const;
+    void CancelPendingUnbinds(ArenaBinds& binds, u64 offset, u64 size);
+    bool pending_unbinds{};
+    std::vector<MemoryChunk> chunks;
+    std::unordered_map<VkDeviceMemory, u32> chunk_of_memory;
+    u32 slots_per_chunk{};
+    u32 first_free_chunk{};
+    // Submission tick of the last use of each block, per arena page (allocated on use);
+    // PinnedTick = never evicted.
+    static constexpr u64 PinnedTick = ~u64{0};
+    std::array<std::unique_ptr<u64[]>, MAX_ARENA_PAGES> block_use{};
+    std::chrono::steady_clock::time_point gc_time{};
+    std::chrono::steady_clock::time_point evict_report_time{};
+    std::chrono::steady_clock::time_point write_back_time{};
+    u64 written_back_bytes{};
+    u64 gpu_written_kept{};
+    u64 gc_tick{};
+    double ticks_per_second{150.0};
+    u64 evicted_bytes{};
+    std::atomic<u64> pool_bytes{0};
 
     void DownloadMemory(const Buffer* arena, VAddr device_addr, u64 size);
 

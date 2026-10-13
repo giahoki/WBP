@@ -850,6 +850,20 @@ void Runtime::FlushBarriers(std::source_location where) {
     }
 
     BbStats::barrier_batches.fetch_add(1, std::memory_order_relaxed);
+    if (!dep_info.memoryBarrierCount) {
+        constexpr auto AnyWrite =
+            vk::AccessFlagBits2::eShaderWrite | vk::AccessFlagBits2::eColorAttachmentWrite |
+            vk::AccessFlagBits2::eDepthStencilAttachmentWrite |
+            vk::AccessFlagBits2::eTransferWrite | vk::AccessFlagBits2::eMemoryWrite |
+            vk::AccessFlagBits2::eHostWrite | vk::AccessFlagBits2::eShaderStorageWrite;
+        const bool any_write = std::ranges::any_of(image_barriers, [&](const auto& barrier) {
+            return static_cast<bool>(barrier.srcAccessMask & AnyWrite) ||
+                   barrier.oldLayout == vk::ImageLayout::eUndefined;
+        });
+        if (!any_write) {
+            BbStats::layout_only_batches.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
     BbStats::NoteBarrierSite(where.file_name(), where.line());
     BbStats::memory_barriers.fetch_add(dep_info.memoryBarrierCount, std::memory_order_relaxed);
     BbStats::image_barriers.fetch_add(dep_info.imageMemoryBarrierCount, std::memory_order_relaxed);
