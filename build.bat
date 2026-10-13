@@ -2,16 +2,17 @@
 rem Builds the Windows port (build.sh) and the package (packaging\windows\package.sh).
 rem Started without arguments it asks what to build; with an argument it builds without asking:
 rem
-rem   build.bat all            the game, the launcher and the package: dist\WBP\ and dist\WBP.zip
+rem   build.bat all            the game, DLSS, the launcher and the package: dist\WBP\ and dist\WBP.zip
 rem   build.bat dev            the game and the launcher in out\, no package (quick test build)
 rem   build.bat game           only the game runtime (out\wbp-game.exe)
 rem   build.bat launcher       only the launcher (Bloodborne.exe) and the package
 rem   build.bat launcher-only  only the launcher, no package
 rem   build.bat package        only the package, from what is already in out\
-rem   build.bat pgo            an instrumented game that records a PGO profile while it is played
+rem   build.bat pgo            an instrumented game (and DLSS) that records a PGO profile while played
 rem
 rem Needs MSYS2 with the CLANG64 packages of packaging\windows\README.md (MSYS2_ROOT if it is
-rem not in C:\msys64). No Python is needed.
+rem not in C:\msys64). No Python is needed. DLSS (all, pgo) also needs Visual Studio with C++; the
+rem DLSS SDK is fetched into third_party\DLSS-SDK the first time. Without them DLSS is skipped.
 setlocal
 cd /d "%~dp0"
 set "MSYS2=%MSYS2_ROOT%"
@@ -35,7 +36,7 @@ set "ASKED=1"
 echo.
 echo  ===== WBP build =====
 echo.
-echo   1  Everything: game + launcher + package (dist\WBP and dist\WBP.zip)
+echo   1  Everything: game + DLSS + launcher + package (dist\WBP and dist\WBP.zip)
 echo   2  Game + launcher, no package (quick, to test from out\)
 echo   3  Game only (wbp-game.exe)
 echo   4  Launcher only (Bloodborne.exe) + package
@@ -66,6 +67,7 @@ goto :m_%MODE%
 
 :m_all
 call :build "" "game and launcher" || goto :fail
+call :dlss
 call :package || goto :fail
 goto :done
 :m_dev
@@ -87,6 +89,7 @@ goto :done
 :m_pgo
 set "BB_PGO=generate"
 call :build "--game" "game recording a PGO profile" || goto :fail
+call :dlss
 goto :done
 
 :done
@@ -105,6 +108,13 @@ echo.
 echo === Building: %~2 ^(build.sh %~1^) ===
 "%BASH%" -lc "bash build.sh %~1"
 exit /b %errorlevel%
+
+:dlss
+echo.
+echo === DLSS ^(packaging/windows/build_dlss.sh^) ===
+"%BASH%" -lc "bash packaging/windows/build_dlss.sh"
+if errorlevel 1 echo DLSS was not built: the game works, the DLSS option stays unavailable.
+exit /b 0
 
 :package
 echo.

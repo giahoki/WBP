@@ -36,17 +36,15 @@ if [[ -d fsr4_shaders ]]; then
 else
     echo "fsr4_shaders/ not found: the package has no FSR 4 (players can download it in the launcher)" >&2
 fi
-# DLSS (NVIDIA RTX): the bridge and NVIDIA's runtime next to wbp-game.exe, prebuilt in
-# third_party/dlss (packaging/windows/build_dlss.sh refreshes them). Without them the DLSS
-# option stays unavailable.
+# DLSS (NVIDIA RTX): the bridge and NVIDIA's runtime next to wbp-game.exe, built into out/ by
+# packaging/windows/build_dlss.sh (build.bat all). Without them the DLSS option stays unavailable.
 mkdir -p "$dest/licenses"
-dlss=third_party/dlss
-if [[ -f $dlss/wbp_dlss.dll && -f $dlss/nvngx_dlss.dll ]]; then
-    cp $dlss/wbp_dlss.dll $dlss/nvngx_dlss.dll "$dest/bin/"
-    cp $dlss/NVIDIA-DLSS-LICENSE.txt "$dest/licenses/"
+if [[ -f out/wbp_dlss.dll && -f out/nvngx_dlss.dll ]]; then
+    cp out/wbp_dlss.dll out/nvngx_dlss.dll "$dest/bin/"
+    cp out/NVIDIA-DLSS-LICENSE.txt "$dest/licenses/"
     cp gpu/dlss_bridge/LICENSE.txt "$dest/licenses/wbp_dlss-LICENSE.txt"
 else
-    echo "third_party/dlss is missing (packaging/windows/build_dlss.sh): no DLSS in this package" >&2
+    echo "out/wbp_dlss.dll is missing (packaging/windows/build_dlss.sh): no DLSS in this package" >&2
 fi
 # Licenses of what is compiled in: online co-op (wepoll, cpp-httplib), the launcher (GLFW,
 # pugixml, libdeflate, miniz, JSON for Modern C++) and the MSYS2 DLLs the game loads.

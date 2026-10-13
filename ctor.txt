@@ -1,2 +1,0 @@
-ObjectMotion::ObjectMotion(const Instance& instance_, Scheduler& scheduler_)
-    : instance{

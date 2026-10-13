@@ -70,10 +70,8 @@ MINGW*|MSYS*)
         echo 'Build failed (full log: out/gpu-build.log)' >&2; exit 1
     fi
     cp out/gpu/wbp-game.exe out/gpu/bb-gpu-capabilities.exe out/gpu/bb-play.exe out/
-    # DLSS: the prebuilt bridge and NVIDIA runtime (third_party/dlss) next to the game.
-    for f in wbp_dlss.dll nvngx_dlss.dll; do
-        [[ -f out/$f || ! -f third_party/dlss/$f ]] || cp third_party/dlss/$f out/
-    done
+    # DLSS (wbp_dlss.dll, nvngx_dlss.dll) is built into out/ by packaging/windows/build_dlss.sh
+    # (build.bat all/pgo).
     echo "Built $PWD/out/wbp-game.exe"
     fi
     [[ ${1:-} == --game ]] && exit 0

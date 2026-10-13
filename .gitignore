@@ -20,6 +20,9 @@ imgui.ini
 # ---- Downloaded or built assets (large, fetched by the launcher or tools/fetch_fsr4_assets.sh) ----
 /fsr4_shaders/
 /fsr4_411/
+# DLSS: the SDK is fetched and the DLLs built by packaging/windows/build_dlss.sh (build.bat all)
+/third_party/DLSS-SDK/
+/third_party/dlss/
 
 # ---- Game files: never commit a dump ------------------------------------------------------------
 CUSA03173/
@@ -38,6 +41,7 @@ eboot.bin
 *.mp4
 *.png
 !launcher/bloodborne.png
+!launcher/logo.png
 *.dmp
 *.orig
 /*.spv
