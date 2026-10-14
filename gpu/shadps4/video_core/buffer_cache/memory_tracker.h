@@ -129,6 +129,16 @@ public:
                             });
     }
 
+    /// wbp: call 'func' for each CPU modified range, leaving the state as is.
+    void ForEachCpuModifiedRange(VAddr query_cpu_range, u64 query_size, auto&& func) {
+        IteratePages<false>(query_cpu_range, query_size,
+                            [&func](RegionManager* manager, u64 offset, size_t size) {
+                                std::scoped_lock lk{manager->lock};
+                                manager->template ForEachModifiedRange<Type::CPU, false>(
+                                    manager->GetCpuAddr() + offset, size, func);
+                            });
+    }
+
     /// Call 'func' for each GPU modified range and unmark those pages as GPU modified
     template <bool clear>
     void ForEachDownloadRange(VAddr query_cpu_range, u64 query_size, auto&& func) {
