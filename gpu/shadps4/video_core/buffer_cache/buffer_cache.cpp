@@ -266,19 +266,30 @@ void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 siz
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;
     const VAddr arena_base = arena->cpu_addr;
+    // wbp: pages the guest wrote after their last upload (CPU-modified, hot pages included)
+    // are newer in guest memory: their next binding uploads them over the GPU copy anyway.
+    // Writing the GPU copy back over them lost those writes for good. Under memory pressure
+    // the eviction write-back put stale GPU data over meshes the game had since streamed into
+    // the same heap: stretched geometry and textures until a restart.
+    RangeSet guest_newer;
+    memory_tracker->ForEachCpuModifiedRange(device_addr, size, [&](VAddr address, u64 size) {
+        guest_newer.Add(address, size);
+    });
     memory_tracker->ForEachDownloadRange<false>(device_addr, size, [&](u64 address, u64 size) {
-        const auto add_download = [&](VAddr start, VAddr end) {
-            const u64 new_offset = start - arena_base;
-            const u64 new_size = end - start;
-            copies.push_back(vk::BufferCopy{
-                .srcOffset = new_offset,
-                .dstOffset = total_size_bytes,
-                .size = new_size,
+        const auto add_download = [&](VAddr range_start, VAddr range_end) {
+            guest_newer.ForEachNotInRange(range_start, range_end - range_start,
+                                          [&](VAddr start, u64 new_size) {
+                const u64 new_offset = start - arena_base;
+                copies.push_back(vk::BufferCopy{
+                    .srcOffset = new_offset,
+                    .dstOffset = total_size_bytes,
+                    .size = new_size,
+                });
+                // Align up to avoid cache conflicts
+                constexpr u64 align = 64ULL;
+                constexpr u64 mask = ~(align - 1ULL);
+                total_size_bytes += (new_size + align - 1) & mask;
             });
-            // Align up to avoid cache conflicts
-            constexpr u64 align = 64ULL;
-            constexpr u64 mask = ~(align - 1ULL);
-            total_size_bytes += (new_size + align - 1) & mask;
         };
         gpu_modified_ranges.ForEachInRange(address, size, add_download);
         gpu_modified_ranges.Subtract(address, size);
